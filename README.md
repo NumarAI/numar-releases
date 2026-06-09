@@ -3,12 +3,12 @@
 
 ---
 
-# Newma
+# Numar
 
 An AI-native desktop IDE built on the VS Code foundation.
-**BYOK (Bring Your Own Key):** Every AI/model request you make in Newma is sent directly from your machine to the model service (provider) you configure — OpenAI, Anthropic, DeepSeek, GLM, Qwen, local Ollama, or any OpenAI-compatible endpoint. Your requests never pass through Newma's servers.
+**BYOK (Bring Your Own Key):** Every AI/model request you make in Numar is sent directly from your machine to the model service (provider) you configure — OpenAI, Anthropic, DeepSeek, GLM, Qwen, local Ollama, or any OpenAI-compatible endpoint. Your requests never pass through Numar's servers.
 
-This repository hosts the **signed binary releases** of Newma. The product itself is closed-source by default; enterprise customers can request source-code review access under NDA (see [FAQ](#faq)).
+This repository hosts the **signed binary releases** of Numar. The product itself is closed-source by default; enterprise customers can request source-code review access under NDA (see [FAQ](#faq)).
 
 ---
 
@@ -29,15 +29,15 @@ This repository hosts the **signed binary releases** of Newma. The product itsel
 
 ## Design
 
-Newma is composed of the following parts:
+Numar is composed of the following parts:
 
 **1. BYOK + Local Sidecar**
-Newma includes a local backend service (`127.0.0.1:3901`) that handles every AI/LLM call. You configure your model service (provider: OpenAI, Anthropic, DeepSeek, GLM, Qwen, local Ollama, or any OpenAI-compatible endpoint) once, and every request is sent from your machine directly to that service. There is no cloud router between Newma and your provider, and Newma's servers do not see the request.
+Numar includes a local backend service (`127.0.0.1:3901`) that handles every AI/LLM call. You configure your model service (provider: OpenAI, Anthropic, DeepSeek, GLM, Qwen, local Ollama, or any OpenAI-compatible endpoint) once, and every request is sent from your machine directly to that service. There is no cloud router between Numar and your provider, and Numar's servers do not see the request.
 
 **2. Network Footprint**
-Newma performs two classes of outbound network access:
+Numar performs two classes of outbound network access:
 
-- **Newma official service**: periodic signed upgrade check to `updates.numar.ai` (returns signed manifest only).
+- **Numar official service**: periodic signed upgrade check to `updates.numar.ai` (returns signed manifest only).
 - **Your configured model service (provider)**: direct connection when you use AI features.
 
 Diagnostics are written to a local newline-delimited JSON file (`~/.newma/telemetry.ndjson`) and are never uploaded. Conversation memory and code index are stored in local SQLite databases on your machine.
@@ -49,7 +49,7 @@ The agent runs through six phases: THINKING → PLAN → GENERATE → APPLY → 
 Each conversation turn is persisted to a local SQLite database, and the agent has a built-in tool that can search past discussions across sessions. Project Memory captures items tied to the current workspace; Global Memory captures items that apply across workspaces. Both are opt-in.
 
 **5. AI-Maintained Engineering Wiki**
-Newma can generate and incrementally maintain a project wiki as markdown files inside the project. The wiki is independent of chat history and lives in the repo, so it is version-controlled.
+Numar can generate and incrementally maintain a project wiki as markdown files inside the project. The wiki is independent of chat history and lives in the repo, so it is version-controlled.
 
 ---
 
@@ -58,7 +58,7 @@ Newma can generate and incrementally maintain a project wiki as markdown files i
 ```mermaid
 graph LR
     subgraph YourMachine["Your Machine"]
-        Editor[Newma Editor<br/>VS Code-based UI]
+        Editor[Numar Editor<br/>VS Code-based UI]
         Sidecar[Local Sidecar<br/>127.0.0.1:3901]
         SQLite[(SQLite<br/>Memory + Code Index)]
         Wiki[(Project Wiki<br/>markdown files)]
@@ -73,7 +73,7 @@ graph LR
 
     Sidecar -.BYOK direct call.-> LLM
 
-    subgraph NewmaServers["Newma Servers"]
+    subgraph NumarServers["Numar Servers"]
         UpdateServer[updates.numar.ai<br/>signed update manifest only]
     end
 
@@ -84,14 +84,14 @@ graph LR
     classDef ours fill:#f0f0f0,stroke:#666
     class YourMachine yours
     class YourProvider provider
-    class NewmaServers ours
+    class NumarServers ours
 ```
 
 **What lives where:**
 
 - The blue box (Your Machine) holds the editor, the local sidecar, your code, your conversation history, your memory, your wiki, and your API keys.
 - The orange box (Your Provider) is whichever model service (provider) you configured. Every model call is sent here directly from your machine.
-- The grey box (Newma Servers) receives only a periodic signed update-manifest request.
+- The grey box (Numar Servers) receives only a periodic signed update-manifest request.
 
 ---
 
@@ -113,13 +113,13 @@ Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar
 
 ```bash
 # Unzip the download
-unzip ~/Downloads/Newma-darwin-arm64.zip -d ~/Downloads/
+unzip ~/Downloads/Numar-darwin-arm64.zip -d ~/Downloads/
 
 # Move to Applications
-mv ~/Downloads/Newma.app /Applications/
+mv ~/Downloads/Numar.app /Applications/
 ```
 
-> **Gatekeeper note.** Newma is signed with an Apple Developer ID and notarized by Apple, so it should open without warnings. If macOS still blocks the first launch, right-click the app and choose **Open**, then confirm.
+> **Gatekeeper note.** Numar is signed with an Apple Developer ID and notarized by Apple, so it should open without warnings. If macOS still blocks the first launch, right-click the app and choose **Open**, then confirm.
 
 ### 3. Verify the Download (Recommended)
 
@@ -127,7 +127,7 @@ Each release ships with a published SHA-256. Verify before first launch:
 
 ```bash
 # Compute the hash of what you downloaded
-shasum -a 256 ~/Downloads/Newma-darwin-arm64.zip
+shasum -a 256 ~/Downloads/Numar-darwin-arm64.zip
 
 # Compare against the value on the Releases page
 # They MUST match. If they don't, do not run the app and report the issue.
@@ -135,9 +135,9 @@ shasum -a 256 ~/Downloads/Newma-darwin-arm64.zip
 
 ### 4. First Run — Bring Your Own Key
 
-On first launch, Newma walks you through configuring at least one LLM provider:
+On first launch, Numar walks you through configuring at least one LLM provider:
 
-1. Open **Settings ▸ Newma AI ▸ Provider** (or **Settings ▸ Newma**)
+1. Open **Settings ▸ Numar AI ▸ Provider** (or **Settings ▸ Numar**)
 2. Pick a model service (provider: OpenAI / Anthropic / DeepSeek / GLM / Qwen / Ollama / OpenAI-compatible custom)
 3. Paste your API key
 4. Optionally configure separate providers for **Embeddings**, **Vision**, **Search**, and **Wiki** if you want different models for those workloads
@@ -158,7 +158,7 @@ The key is stored in your OS keychain. It never leaves your machine except in di
 
 ### Chat & Modes
 
-Newma's chat panel is the primary interface. The chat exposes three modes:
+Numar's chat panel is the primary interface. The chat exposes three modes:
 
 | Mode | Behavior | Best For |
 |------|----------|----------|
@@ -174,7 +174,7 @@ When you give the agent a task, it walks through visible phases:
 2. **PLAN** — gathers information by calling read-only tools (grep, file read, etc.), then commits to a plan, bounded by max rounds and timeout to prevent infinite loops.
 3. **GENERATE** — produces the actual edits.
 4. **APPLY** — writes the edits to disk.
-5. **TEST** — if Newma Test is enabled, runs your test command and feeds failures back for self-repair.
+5. **TEST** — if Numar Test is enabled, runs your test command and feeds failures back for self-repair.
 6. **SUMMARY** — concise recap of what changed and why.
 
 Every phase is shown in the UI. Stopping mid-pipeline is always available.
@@ -207,9 +207,9 @@ File **deletion** always requires explicit confirmation regardless of settings.
 
 The plan is a real markdown document persisted to your workspace. You can read it, edit it, re-order TODOs, or cancel.
 
-### Newma Test — Self-Repair Loop
+### Numar Test — Self-Repair Loop
 
-After the agent finishes editing, Newma Test can:
+After the agent finishes editing, Numar Test can:
 
 1. Automatically pick relevant tests
 2. Run them
@@ -238,7 +238,7 @@ For TypeScript/JavaScript projects, enabling auto-compile runs the compiler afte
 
 ### Memory — Two Layers
 
-Newma has two **opt-in** persistent memory layers, both off by default:
+Numar has two **opt-in** persistent memory layers, both off by default:
 
 - **Global Memory** — cross-workspace personal preferences: interaction style, tone, things that apply regardless of project.
 - **Project Memory** — facts and decisions tied to the current workspace: library choices, deadlines, constraints not visible in code.
@@ -257,15 +257,15 @@ You control:
 
 ### Project Wiki
 
-Newma can generate and incrementally maintain an engineering wiki for your project, independent of the chat. The wiki lives as markdown files inside your repo (so it's version-controlled and reviewable); a dedicated model can be configured for wiki generation if you want a cheaper or larger-context model for that workload.
+Numar can generate and incrementally maintain an engineering wiki for your project, independent of the chat. The wiki lives as markdown files inside your repo (so it's version-controlled and reviewable); a dedicated model can be configured for wiki generation if you want a cheaper or larger-context model for that workload.
 
 ### Code Index
 
-Newma maintains a local SQLite index of your project source for keyword and (optionally) semantic search. Semantic search requires configuring an embedding provider (for vector embeddings). Both keyword and semantic search are available to the agent as tools and to you via the search UI.
+Numar maintains a local SQLite index of your project source for keyword and (optionally) semantic search. Semantic search requires configuring an embedding provider (for vector embeddings). Both keyword and semantic search are available to the agent as tools and to you via the search UI.
 
 ### Cross-Stack Agents (Multi-Window Coordination)
 
-You can link multiple Newma windows on the same machine into a coordinated workspace. Agents in different windows can ask and answer questions across linked workspaces — without any cloud middleman. Useful for monorepo-style work where you want to keep editor instances focused but still let them talk to each other.
+You can link multiple Numar windows on the same machine into a coordinated workspace. Agents in different windows can ask and answer questions across linked workspaces — without any cloud middleman. Useful for monorepo-style work where you want to keep editor instances focused but still let them talk to each other.
 
 ### Trusted Commands
 
@@ -275,11 +275,11 @@ Configure a list of terminal commands that the agent is allowed to run without p
 
 ## Settings Overview
 
-All settings live under **Settings ▸ Newma**. Each panel in the UI has detailed descriptions, defaults, and value ranges — this section is just a map so you know what areas you can tune.
+All settings live under **Settings ▸ Numar**. Each panel in the UI has detailed descriptions, defaults, and value ranges — this section is just a map so you know what areas you can tune.
 
 **General** — system notifications; local diagnostics (toggle, retention, size cap); interaction log retention
 
-**Cross-Stack Agents** — whether this window may talk to other Newma windows on the same machine; peer task record retention
+**Cross-Stack Agents** — whether this window may talk to other Numar windows on the same machine; peer task record retention
 
 **Memory** — toggles for Global Memory and Project Memory (**both off by default**)
 
@@ -297,7 +297,7 @@ All settings live under **Settings ▸ Newma**. Each panel in the UI has detaile
 
 **Plan Mode** — auto-trigger master switch plus thresholds (file count, edit count, create count, destructive operations, sensitive files)
 
-**Newma Test** — toggle, test command template, timeout, self-repair retry budget
+**Numar Test** — toggle, test command template, timeout, self-repair retry budget
 
 **Context Window** — recent turn count kept in context; history token budget; over-budget strategy (truncate or LLM summary)
 
@@ -313,7 +313,7 @@ All settings live under **Settings ▸ Newma**. Each panel in the UI has detaile
 
 ## Updates & Auto-Upgrade
 
-Newma checks for updates automatically against `updates.numar.ai`. The check is gated, signed, and conservative:
+Numar checks for updates automatically against `updates.numar.ai`. The check is gated, signed, and conservative:
 
 - **Signed manifests.** Every update manifest is signed with an ed25519 key whose public key is embedded in the app at build time. Manifests that fail verification are rejected.
 - **Cohort-based rollout.** Each client computes a stable cohort hash. New releases roll out to a percentage of cohorts first; only versions that prove stable get bumped to 100%.
@@ -322,15 +322,15 @@ Newma checks for updates automatically against `updates.numar.ai`. The check is 
 
 **Manual control:**
 
-- Check for updates: `Newma ▸ Check for Updates…`
-- Disable remote runtime config: `newma.remoteConfig.enabled = false`
-- Audit what Newma phones home for: **Newma official services side** has only one endpoint (`updates.numar.ai`), which returns nothing but a signed manifest; AI function requests connect directly to your configured model service (provider). You can verify with any HTTP inspection tool.
+- Check for updates: `Numar ▸ Check for Updates…`
+- Disable remote runtime config: `numar.remoteConfig.enabled = false`
+- Audit what Numar phones home for: **Numar official services side** has only one endpoint (`updates.numar.ai`), which returns nothing but a signed manifest; AI function requests connect directly to your configured model service (provider). You can verify with any HTTP inspection tool.
 
 ---
 
 ## Security & Privacy
 
-This section lists exactly what Newma stores locally and what it sends over the network.
+This section lists exactly what Numar stores locally and what it sends over the network.
 
 **What stays on your machine:**
 
@@ -344,7 +344,7 @@ This section lists exactly what Newma stores locally and what it sends over the 
 - Project wiki (markdown files inside your project)
 - Diagnostic logs (`~/.newma/telemetry.ndjson`, never auto-uploaded)
 
-**What Newma sends, to whom:**
+**What Numar sends, to whom:**
 
 - **LLM provider you configured** — every model call goes here, directly. Standard rules of that provider apply (e.g. OpenAI's data retention policy).
 - **`updates.numar.ai`** — periodic upgrade check, includes platform, version, and a stable opaque cohort hash, returns a signed manifest. **No usage data, no telemetry, no code, no prompts.**
@@ -354,8 +354,8 @@ This section lists exactly what Newma stores locally and what it sends over the 
 **For enterprise / compliance teams:**
 
 - Source code review under NDA available on request
-- Self-hosted update server supported (`newma.remoteConfig.endpoint` override)
-- Offline / air-gapped install: disable remote configuration and auto-update in Settings; Newma continues to work indefinitely against locally-configured providers (including local Ollama)
+- Self-hosted update server supported (`numar.remoteConfig.endpoint` override)
+- Offline / air-gapped install: disable remote configuration and auto-update in Settings; Numar continues to work indefinitely against locally-configured providers (including local Ollama)
 
 Contact us if you need a formal security questionnaire response.
 
@@ -365,15 +365,15 @@ Contact us if you need a formal security questionnaire response.
 
 ### Is the source code open?
 
-Newma is **closed-source by default**. We are a small focused team and currently ship as a commercial product.
+Numar is **closed-source by default**. We are a small focused team and currently ship as a commercial product.
 
 **For enterprise customers**, source-code review access is available under NDA. This is intended for security audits, compliance reviews, and internal verification by your platform/security team. Contact us if your organization needs it.
 
-### Does Newma see my code or my prompts?
+### Does Numar see my code or my prompts?
 
-**No.** Every LLM call is made by the local sidecar on your machine directly to the provider you configured. Newma's servers are never in the request path. The only thing our servers see is a signed update check (platform + version + opaque cohort hash).
+**No.** Every LLM call is made by the local sidecar on your machine directly to the provider you configured. Numar's servers are never in the request path. The only thing our servers see is a signed update check (platform + version + opaque cohort hash).
 
-### Does Newma see my API keys?
+### Does Numar see my API keys?
 
 **No.** Keys live in your OS keychain and are used only by the local sidecar when calling your provider. They are never sent to us.
 
@@ -382,13 +382,13 @@ Newma is **closed-source by default**. We are a small focused team and currently
 - **Cursor** is a hosted IDE. LLM routing, team management, and billing run on its servers.
 - **Cline** is a VS Code extension. It runs inside a host editor you provide.
 - **GitHub Copilot** is integrated with GitHub-hosted models and the Microsoft ecosystem.
-- **Newma** is a desktop IDE. Every LLM call is sent by the local sidecar on your machine directly to the model service (provider) you configure. Newma's own servers receive only periodic signed update-manifest requests.
+- **Numar** is a desktop IDE. Every LLM call is sent by the local sidecar on your machine directly to the model service (provider) you configure. Numar's own servers receive only periodic signed update-manifest requests.
 
 ### Can I use a local model instead of a hosted one?
 
-Yes. Configure Ollama (or any OpenAI-compatible local server) as your provider. Newma's local sidecar will call it on `localhost`. You can run end-to-end with **zero outbound network traffic** except for the upgrade check (which you can also disable).
+Yes. Configure Ollama (or any OpenAI-compatible local server) as your provider. Numar's local sidecar will call it on `localhost`. You can run end-to-end with **zero outbound network traffic** except for the upgrade check (which you can also disable).
 
-### Can I run Newma against my company's self-hosted LLM gateway?
+### Can I run Numar against my company's self-hosted LLM gateway?
 
 Yes. Set the provider URL to your internal gateway endpoint and use whatever auth header your gateway expects.
 
@@ -400,26 +400,26 @@ Yes, they're on the roadmap. macOS / Apple Silicon is the first supported platfo
 
 For bugs in the released binaries, open an Issue on this repository. For private security disclosures, contact us via the email below.
 
-### What happens if Newma's servers go down?
+### What happens if Numar's servers go down?
 
-Your editor keeps working. The only Newma-side dependency is the upgrade check, which fails gracefully — you can keep using your installed version indefinitely. Model calls go direct to your provider regardless of our server status.
+Your editor keeps working. The only Numar-side dependency is the upgrade check, which fails gracefully — you can keep using your installed version indefinitely. Model calls go direct to your provider regardless of our server status.
 
 ### Why a fork of VS Code rather than a plugin?
 
-A plugin cannot own the chat panel layout, the agent state, the plan-mode UX, the multi-window coordination, or the update channel. Forking makes these first-class. Newma tracks upstream VS Code; its additions are localized to new modules plus a small number of integration points.
+A plugin cannot own the chat panel layout, the agent state, the plan-mode UX, the multi-window coordination, or the update channel. Forking makes these first-class. Numar tracks upstream VS Code; its additions are localized to new modules plus a small number of integration points.
 
 ---
 
 ## About This Repository
 
-This repository (`NumarAI/numar-releases`) is the **public distribution point** for signed Newma binaries. It contains no source code — just GitHub Releases with the `.app.zip` per platform, their SHA-256 manifests, and this README.
+This repository (`NumarAI/numar-releases`) is the **public distribution point** for signed Numar binaries. It contains no source code — just GitHub Releases with the `.app.zip` per platform, their SHA-256 manifests, and this README.
 
-> **A note on naming.** The product is currently shipped as **Newma**, and is published under the `NumarAI` GitHub organization — the parent brand we plan to migrate the product toward in a future release. For now: the app, the settings, and the local paths all use `Newma`; the distribution org and the update domain (`updates.numar.ai`) already use `Numar`. The two will be reconciled when the rebrand ships.
+> **About the name.** Starting from **v0.0.5**, the product, settings, and UI use **Numar** throughout. Some on-disk paths under your home directory (e.g. `~/.newma/telemetry.ndjson`) retain the legacy `newma` prefix for backward compatibility — they are stable identifiers and won't be renamed in place.
 
 The product source code is hosted privately. The split exists because:
 
 - Distribution should be **public, free, and CDN-backed** — GitHub Releases gives us that for zero cost.
-- The Newma update server (`updates.numar.ai`) reads release metadata from this repo, so making it public means anyone can audit what we ship.
+- The Numar update server (`updates.numar.ai`) reads release metadata from this repo, so making it public means anyone can audit what we ship.
 - Source code stays private for the reasons in the FAQ above.
 
 If you found this repo by clicking a download link, the latest macOS asset is on the [Releases](https://github.com/NumarAI/numar-releases/releases) page.
@@ -428,7 +428,7 @@ If you found this repo by clicking a download link, the latest macOS asset is on
 
 ## License & Contact
 
-**Newma binaries** in this repository are proprietary software. © 2026 Newma. All rights reserved. You may download, install, and use Newma on your own machines for personal or internal business purposes. Redistribution, decompilation, or reverse engineering of the binaries is not permitted.
+**Numar binaries** in this repository are proprietary software. © 2026 Numar. All rights reserved. You may download, install, and use Numar on your own machines for personal or internal business purposes. Redistribution, decompilation, or reverse engineering of the binaries is not permitted.
 
 **This repository's metadata** (README, release notes) is available under the MIT License.
 
@@ -437,5 +437,5 @@ If you found this repo by clicking a download link, the latest macOS asset is on
 ---
 
 <p align="center">
-  <em>Newma — an AI-native desktop IDE.</em>
+  <em>Numar — an AI-native desktop IDE.</em>
 </p>
