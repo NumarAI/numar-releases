@@ -6,7 +6,7 @@
 # Numar
 
 An AI-native desktop IDE built on the VS Code foundation.
-**BYOK (Bring Your Own Key):** Every AI/model request you make in Numar is sent directly from your machine to the model service (provider) you configure — OpenAI, Anthropic, DeepSeek, GLM, Qwen, local Ollama, or any OpenAI-compatible endpoint. Your requests never pass through Numar's servers.
+**BYOK (Bring Your Own Key):** Every AI/model request you make in Numar is sent directly from your machine to the model service (provider) you configure — OpenAI, Anthropic, DeepSeek, GLM (Zhipu), Qwen, Gemini, OpenRouter, local Ollama, or any OpenAI-compatible endpoint. Your requests never pass through Numar's servers.
 
 This repository hosts the **signed binary releases** of Numar. The product itself is closed-source by default; enterprise customers can request source-code review access under NDA (see [FAQ](#faq)).
 
@@ -32,7 +32,7 @@ This repository hosts the **signed binary releases** of Numar. The product itsel
 Numar is composed of the following parts:
 
 **1. BYOK + Local Sidecar**
-Numar includes a local backend service (`127.0.0.1:3901`) that handles every AI/LLM call. You configure your model service (provider: OpenAI, Anthropic, DeepSeek, GLM, Qwen, local Ollama, or any OpenAI-compatible endpoint) once, and every request is sent from your machine directly to that service. There is no cloud router between Numar and your provider, and Numar's servers do not see the request.
+Numar includes a local backend service (`127.0.0.1:3901`) that handles every AI/LLM call. You configure your model service (provider: OpenAI, Anthropic, DeepSeek, GLM (Zhipu), Qwen, Gemini, OpenRouter, local Ollama, or any OpenAI-compatible endpoint) once, and every request is sent from your machine directly to that service. There is no cloud router between Numar and your provider, and Numar's servers do not see the request.
 
 **2. Network Footprint**
 Numar performs two classes of outbound network access:
@@ -138,7 +138,7 @@ shasum -a 256 ~/Downloads/Numar-darwin-arm64.zip
 On first launch, Numar walks you through configuring at least one LLM provider:
 
 1. Open **Settings ▸ Numar AI ▸ Provider** (or **Settings ▸ Numar**)
-2. Pick a model service (provider: OpenAI / Anthropic / DeepSeek / GLM / Qwen / Ollama / OpenAI-compatible custom)
+2. Pick a model service (provider: OpenAI / Anthropic / DeepSeek / GLM / Qwen / Gemini / OpenRouter / Ollama / OpenAI-compatible custom)
 3. Paste your API key
 4. Optionally configure separate providers for **Embeddings**, **Vision**, **Search**, and **Wiki** if you want different models for those workloads
 
@@ -166,11 +166,18 @@ Numar's chat panel is the primary interface. The chat exposes three modes:
 | **Agent** | Full pipeline: THINKING → PLAN → GENERATE → APPLY → TEST → SUMMARY. Edits files, runs commands, iterates on failures. | Most coding tasks. |
 | **Plan** | Generates a structured plan document with TODOs. Each TODO is then executed and approved individually. | Multi-file refactors, anything destructive, anything you want to review before it happens. |
 
+### Models, Reasoning Effort & Free Models
+
+Register multiple models across providers and switch between them from the chat model picker.
+
+- **Reasoning effort.** For models that support a reasoning/thinking chain, pick an effort level — Low / Medium / High / Extra High — right next to the model. The unified levels map to each provider's native setting (e.g. OpenAI and Anthropic). Effort is hidden for models that only reason optionally when Agent reasoning is turned off.
+- **Browse free models.** The Models settings page links to a curated list of free models (currently via OpenRouter) that support tool-calling and coding. Each entry shows its vendor with a link to the official site and a link to get an API key, and can be added with one click. Free tiers are rate-limited, so heavy agent runs may hit provider caps.
+
 ### The Agent Pipeline
 
 When you give the agent a task, it walks through visible phases:
 
-1. **THINKING** — high-level analysis, timeboxed (default 120s) and cancellable, optional reasoning mode enables thinking-chain models (DeepSeek-R1, GLM, Qwen-thinking).
+1. **THINKING** — high-level analysis, timeboxed (default 300s) and cancellable, optional reasoning mode enables thinking-chain models (DeepSeek-R1, GLM, Qwen-thinking, plus reasoning-capable OpenAI / Anthropic models).
 2. **PLAN** — gathers information by calling read-only tools (grep, file read, etc.), then commits to a plan, bounded by max rounds and timeout to prevent infinite loops.
 3. **GENERATE** — produces the actual edits.
 4. **APPLY** — writes the edits to disk.
@@ -182,7 +189,7 @@ Every phase is shown in the UI. Stopping mid-pipeline is always available.
 ```mermaid
 stateDiagram-v2
     [*] --> THINKING
-    THINKING --> PLAN: 120s timeout
+    THINKING --> PLAN: 300s timeout
     THINKING --> [*]: cancel
     PLAN --> GENERATE: collect info
     PLAN --> [*]: cancel
@@ -267,6 +274,29 @@ Numar maintains a local SQLite index of your project source for keyword and (opt
 
 You can link multiple Numar windows on the same machine into a coordinated workspace. Agents in different windows can ask and answer questions across linked workspaces — without any cloud middleman. Useful for monorepo-style work where you want to keep editor instances focused but still let them talk to each other.
 
+### Git in Chat (Changes Panel)
+
+Review and commit agent edits without leaving the chat. The **Changes panel** tracks the files the AI modified in the current chat session — with added/removed line counts and A/M/D/R status badges — and reconciles with source control as the conversation progresses. Three actions are available:
+
+- **Review** — open a multi-file working-tree diff of the listed files.
+- **Commit** — stage and commit the listed files.
+- **Commit & Push** — commit, then push the current branch to upstream.
+
+Commits are carried out by the agent through its git tools. Protected branches follow confirmation rules (pushes to `master` always confirm), and empty commits or already-up-to-date pushes are skipped automatically.
+
+### Code Review (Advisory)
+
+Numar ships a per-commit AI code reviewer with its own **Code Review** container in the Activity Bar. It reviews a single git commit's diff and writes a structured markdown report — a summary, findings grouped into **Must-fix / Suggestions / Nits**, plus security, correctness, and testing notes — ending with a verdict of `clean`, `needs-attention`, or `blocking-advisory`.
+
+- **Advisory only.** Code Review never blocks a commit or push; it only produces a report.
+- **Manual or automatic.** Run *Review Latest Commit* (or review a specific commit) from the view, or opt into auto-review after each commit. Auto-review is gated by configurable thresholds (minimum files and/or lines changed); merge commits, already-reviewed commits, git-ignored files, and excluded paths are skipped. Large diffs are chunked automatically.
+- **Reports live outside your repo.** Each report is written to a sibling folder `<project>_CodeReview/`, one markdown file per commit grouped by branch, with a `_meta.json` index — so reviews never pollute your project tree or git history.
+- **Its own model (optional).** Point Code Review at a dedicated model / endpoint / key under *Settings ▸ Code Review*, or let it fall back to your primary model.
+
+### Content Language
+
+Numar detects whether you mostly chat in Chinese or English and applies that language to AI-generated prose — Wiki pages, Code Review reports, and summaries — while structural headings stay in English. It is automatic and sticky per workspace; there is no toggle to manage.
+
 ### Trusted Commands
 
 Configure a list of terminal commands that the agent is allowed to run without prompting. Everything else asks for confirmation. Auto-approval can also be turned on globally.
@@ -291,9 +321,11 @@ All settings live under **Settings ▸ Numar**. Each panel in the UI has detaile
 
 **Wiki** — dedicated model, endpoint, and API key for project wiki generation
 
-**Commands** — auto-approve terminal commands toggle; trusted commands whitelist
+**Code Review** — auto-review toggle; trigger timing (post-commit / post-push); thresholds (minimum files and lines changed); exclude patterns; optional dedicated CR model, endpoint, and key
 
-**Agents** — max steps per run; PLAN and THINKING phase timeouts and round caps; auto-compile after typed-file edits; reasoning mode; skip request classification
+**Commands & Git** — auto-approve terminal commands toggle; trusted commands whitelist; trusted git operations that skip confirmation; require confirmation for pushes to `master`
+
+**Agents** — max steps per run; PLAN and THINKING phase timeouts and round caps; auto-compile after typed-file edits; reasoning mode and per-model reasoning effort; skip request classification
 
 **Plan Mode** — auto-trigger master switch plus thresholds (file count, edit count, create count, destructive operations, sensitive files)
 

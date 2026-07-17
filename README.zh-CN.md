@@ -5,7 +5,7 @@
 
 # Numar
 
-基于 VS Code 内核构建的 AI-native 桌面 IDE，**BYOK（自备 Key）**：你在 Numar 里发起的所有 **AI/模型请求** 都由你的电脑直接发送到你配置的**模型服务（provider）**（OpenAI / Anthropic / DeepSeek / GLM / Qwen / 本地 Ollama，或任何 OpenAI-compatible 端点），**不会先发到 Numar 的服务器再转发**。
+基于 VS Code 内核构建的 AI-native 桌面 IDE，**BYOK（自备 Key）**：你在 Numar 里发起的所有 **AI/模型请求** 都由你的电脑直接发送到你配置的**模型服务（provider）**（OpenAI / Anthropic / DeepSeek / GLM（智谱）/ Qwen / Gemini / OpenRouter / 本地 Ollama，或任何 OpenAI-compatible 端点），**不会先发到 Numar 的服务器再转发**。
 
 本仓库存放的是 Numar 的**签名二进制版本**，产品本身默认闭源；企业客户可以在签订 NDA 后申请源码审阅（见 [FAQ](#faq)）。
 
@@ -31,7 +31,7 @@
 Numar 由以下几部分构成：
 
 **1. BYOK + 本地 Sidecar**
-Numar 包含一个本地后端服务（`127.0.0.1:3901`），所有 AI/LLM 调用都从它发起。你配置一次模型服务（provider：OpenAI、Anthropic、DeepSeek、GLM、Qwen、本地 Ollama，或任何 OpenAI-compatible 端点），之后每个请求都由你的机器直接发到该模型服务（provider）。Numar 不提供云端中转，服务器也不接收请求内容。
+Numar 包含一个本地后端服务（`127.0.0.1:3901`），所有 AI/LLM 调用都从它发起。你配置一次模型服务（provider：OpenAI、Anthropic、DeepSeek、GLM（智谱）、Qwen、Gemini、OpenRouter、本地 Ollama，或任何 OpenAI-compatible 端点），之后每个请求都由你的机器直接发到该模型服务（provider）。Numar 不提供云端中转，服务器也不接收请求内容。
 
 **2. 网络出向**
 Numar 会进行两类对外网络访问：
@@ -137,7 +137,7 @@ shasum -a 256 ~/Downloads/Numar-darwin-arm64.zip
 第一次启动时，Numar 会引导你配置至少一家模型服务（provider）：
 
 1. 打开 **Settings ▸ Numar**
-2. 选择模型服务（provider：OpenAI / Anthropic / DeepSeek / GLM / Qwen / Ollama / OpenAI-compatible 自定义）
+2. 选择模型服务（provider：OpenAI / Anthropic / DeepSeek / GLM / Qwen / Gemini / OpenRouter / Ollama / OpenAI-compatible 自定义）
 3. 粘贴你的 API Key
 4. 如果想给 **向量嵌入（Embedding）/ 视觉（Vision）/ 搜索（Search）/ Wiki** 配独立模型，也可以单独设置
 
@@ -165,11 +165,18 @@ Numar 的聊天面板是主要的工作界面，提供三种模式：
 | **Agent** | 完整流水线 THINKING → PLAN → GENERATE → APPLY → TEST → SUMMARY；编辑文件、跑命令、按失败迭代 | 大多数编码任务 |
 | **Plan** | 先生成结构化的计划文档，每个 TODO 单独执行并征求批准 | 跨多文件的重构、任何破坏性操作、任何你想"先看再改"的事 |
 
+### 模型、推理强度与免费模型
+
+可以注册多家 provider 下的多个模型，并从聊天的模型选择器里随时切换。
+
+- **推理强度（Reasoning effort）。** 对支持推理/思考链的模型，可以直接在模型旁选择强度档位——Low / Medium / High / Extra High。统一档位会映射到各 provider 的原生参数（如 OpenAI、Anthropic）。对"仅可选推理"的模型，当 Agent 推理开关关闭时不显示强度选项。
+- **浏览免费模型。** Models 设置页提供入口，列出精选的免费模型（当前经由 OpenRouter），均支持工具调用与编程。每个条目会显示其厂商（带官网链接）和获取 API Key 的链接，可一键添加。免费档有限流，重度 Agent 任务可能很快触达 provider 上限。
+
 ### Agent 流水线
 
 当你给 Agent 一个任务，它会走一条可见的阶段路径：
 
-1. **THINKING** —— 高层分析，带超时（默认 120 秒），可取消，可选启用推理（reasoning）模式（DeepSeek-R1、GLM、Qwen-thinking 这类带独立推理链的模型）。
+1. **THINKING** —— 高层分析，带超时（默认 300 秒），可取消，可选启用推理（reasoning）模式（DeepSeek-R1、GLM、Qwen-thinking 这类带独立推理链的模型，以及支持推理的 OpenAI / Anthropic 模型）。
 2. **PLAN** —— 通过只读（read-only）工具（grep、文件读取等）收集信息，然后定下计划，有最大轮次和超时上限，避免死循环。
 3. **GENERATE** —— 产出真正的编辑。
 4. **APPLY** —— 把编辑写到磁盘。
@@ -181,7 +188,7 @@ Numar 的聊天面板是主要的工作界面，提供三种模式：
 ```mermaid
 stateDiagram-v2
     [*] --> THINKING
-    THINKING --> PLAN: 120s timeout
+    THINKING --> PLAN: 300s timeout
     THINKING --> [*]: cancel
     PLAN --> GENERATE: collect info
     PLAN --> [*]: cancel
@@ -266,6 +273,29 @@ Numar 在本地 SQLite 维护一份项目代码的索引，支持关键字搜索
 
 你可以把同一台机器上的多个 Numar 窗口连成一个协同工作区（workspace），不同窗口里的 Agent 可以跨工作区（workspace）提问和回答——全程不经过云。适合单仓库（monorepo）这类想保持编辑器实例聚焦、但又希望它们之间能对话的场景。
 
+### 聊天内 Git（Changes 面板）
+
+不离开聊天就能审阅并提交 Agent 的改动。**Changes 面板**按当前会话跟踪 AI 修改过的文件——带增/删行数和 A/M/D/R 状态标记——并随对话推进与源代码管理对账。提供三个动作：
+
+- **Review** —— 打开这些文件的多文件工作区 diff。
+- **Commit** —— 暂存并提交这些文件。
+- **Commit & Push** —— 提交后把当前分支推到上游。
+
+提交由 Agent 通过其 git 工具执行；受保护分支遵循确认规则（推送到 `master` 一律需确认），空提交或已是最新的 push 会被自动跳过。
+
+### Code Review（代码审查，建议性）
+
+Numar 内置一个按 commit 的 AI 代码审查器，在活动栏有独立的 **Code Review** 容器。它审查单个 git commit 的 diff，产出结构化的 markdown 报告——摘要、按 **Must-fix / Suggestions / Nits** 分组的发现项，以及安全性、正确性、测试相关的说明——最后给出结论：`clean`、`needs-attention` 或 `blocking-advisory`。
+
+- **仅供参考。** Code Review 从不阻断 commit 或 push，只产出报告。
+- **手动或自动。** 在视图里运行 *Review Latest Commit*（或审查指定 commit），也可开启每次提交后自动审查。自动审查受可配置阈值门控（最少改动文件数 / 行数）；合并提交、已审查过的提交、被 git 忽略的文件、以及排除路径都会跳过。大 diff 会自动分块。
+- **报告存在仓库之外。** 每份报告写到项目**同级目录** `<项目>_CodeReview/`，按分支分文件夹、每个 commit 一个 markdown 文件，另有 `_meta.json` 索引——审查内容不会污染你的项目树或 git 历史。
+- **可用独立模型（可选）。** 在 *Settings ▸ Code Review* 给 Code Review 配独立的模型 / endpoint / key，或让它回退到你的主模型。
+
+### Content Language（内容语言）
+
+Numar 会识别你主要用中文还是英文聊天，并把该语言套用到 AI 生成的正文——Wiki 页面、Code Review 报告、摘要——同时结构性标题保持英文。它全自动、按工作区（workspace）粘性记忆，无需手动开关。
+
 ### Trusted Commands
 
 配一份白名单，列出 Agent 可以不弹窗直接执行的终端命令，其它都会先问你，也可以全局开启自动批准。
@@ -290,9 +320,11 @@ Numar 在本地 SQLite 维护一份项目代码的索引，支持关键字搜索
 
 **Wiki（工程 Wiki）** —— Wiki 生成可单独配置的模型、端点（endpoint）、API Key
 
-**Commands（命令）** —— 终端命令自动批准总开关；可信命令白名单
+**Code Review（代码审查）** —— 自动审查开关；触发时机（post-commit / post-push）；阈值（最少改动文件数、行数）；排除模式；可选的独立 CR 模型、端点（endpoint）、API Key
 
-**Agents（Agent）** —— 单次最大步数；PLAN 与 THINKING 阶段超时和轮次上限；类型化编辑后自动编译；推理（reasoning）模式；跳过请求分类
+**Commands & Git（命令与 Git）** —— 终端命令自动批准总开关；可信命令白名单；可跳过确认的可信 git 操作；推送到 `master` 强制确认
+
+**Agents（Agent）** —— 单次最大步数；PLAN 与 THINKING 阶段超时和轮次上限；类型化编辑后自动编译；推理（reasoning）模式与按模型的推理强度；跳过请求分类
 
 **Plan Mode（计划模式）** —— 自动触发总开关与阈值（文件数、编辑数、创建数、破坏性操作、敏感文件）
 
