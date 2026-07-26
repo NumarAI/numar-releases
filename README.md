@@ -42,13 +42,19 @@ Numar performs two classes of outbound network access:
 
 Diagnostics are written to a local newline-delimited JSON file (`~/.newma/telemetry.ndjson`) and are never uploaded. Conversation memory and code index are stored in local SQLite databases on your machine.
 
-**3. Agent State Machine**
-The agent runs through six phases: THINKING → PLAN → GENERATE → APPLY → TEST → SUMMARY. Each phase has its own timeout and round budget, surfaces its current state in the UI, and can be paused, redirected, or cancelled.
+**3. Agent Workflow (Standard & Phased)**
+When you start an Agent or SO chat, Numar asks which workflow to use — the choice stays locked for that session.
 
-**4. Persistent Project Memory**
+- **Standard** — a continuous coding agent: inspect → edit → validate → complete in one tool loop (Free and Pro).
+- **Phased** — a staged coding workflow: THINKING → PLAN → GENERATE → APPLY → host Syntax / Compile / Test checks, with visible phase state (Pro). Optional per-stage models and Effort on **Settings ▸ Agent Workflow**.
+
+**4. SO Mode (Self-Operating)**
+SO Mode lets Numar own a clear goal end-to-end — investigate, implement, validate, and repair within limits — without approving every step. It follows the Standard or Phased workflow you chose for the chat, and only pauses for credentials, permissions, or business facts it cannot infer.
+
+**5. Persistent Project Memory**
 Each conversation turn is persisted to a local SQLite database, and the agent has a built-in tool that can search past discussions across sessions. Project Memory captures items tied to the current workspace; Global Memory captures items that apply across workspaces. Both are opt-in.
 
-**5. AI-Maintained Engineering Wiki**
+**6. AI-Maintained Engineering Wiki**
 Numar can generate and incrementally maintain a project wiki as markdown files inside the project. The wiki is independent of chat history and lives in the repo, so it is version-controlled.
 
 ---
@@ -107,7 +113,7 @@ graph LR
 
 ### 1. Download
 
-Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page.
+Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.12](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.12)**).
 
 ### 2. Install
 
@@ -149,8 +155,11 @@ The key is stored in your OS keychain. It never leaves your machine except in di
 `File ▸ Open Folder…` and pick any directory. Open the chat panel (default keybinding: ⌘L on macOS). Pick a mode:
 
 - **Ask** — chat with the model, no edits
-- **Agent** — full state-machine agent, edits files, runs tests
-- **Plan** — generate a structured plan first, execute per-TODO with your approval
+- **Agent** — edits files and runs tools; on a new chat you also choose **Standard** or **Phased** workflow (see below)
+- **Plan** — draft a reviewable plan under `.numar/plans/`, then execute when you are ready
+- **SO** (optional) — Self-Operating: Numar drives the task within limits; still uses your Standard/Phased choice
+
+Also open **Settings ▸ Numar ▸ Docs** for in-app Quick Start, Agent Workflow, SO Mode, and troubleshooting.
 
 ---
 
@@ -158,13 +167,14 @@ The key is stored in your OS keychain. It never leaves your machine except in di
 
 ### Chat & Modes
 
-Numar's chat panel is the primary interface. The chat exposes three modes:
+Numar's chat panel is the primary interface. The chat exposes these modes:
 
 | Mode | Behavior | Best For |
 |------|----------|----------|
 | **Ask** | Pure conversation. No file edits, no tool calls. | Learning a codebase, asking explanations, exploring options. |
-| **Agent** | Full pipeline: THINKING → PLAN → GENERATE → APPLY → TEST → SUMMARY. Edits files, runs commands, iterates on failures. | Most coding tasks. |
-| **Plan** | Generates a structured plan document with TODOs. Each TODO is then executed and approved individually. | Multi-file refactors, anything destructive, anything you want to review before it happens. |
+| **Agent** | Coding agent with tools. You choose **Standard** or **Phased** once per chat session. | Day-to-day coding, features, refactors. |
+| **Plan** | Writes a structured plan document with TODOs under `.numar/plans/`. You review, then Execute. | Multi-file refactors, anything destructive, anything you want to review before it happens. |
+| **SO** | Self-Operating overlay on Agent: investigate → implement → validate → repair with fewer mid-step asks. | Clear goals you want delivered hands-off. |
 
 ### Models, Reasoning Effort & Free Models
 
@@ -173,36 +183,61 @@ Register multiple models across providers and switch between them from the chat 
 - **Reasoning effort.** For models that support a reasoning/thinking chain, pick an effort level — Low / Medium / High / Extra High — right next to the model. The unified levels map to each provider's native setting (e.g. OpenAI and Anthropic). Effort is hidden for models that only reason optionally when Agent reasoning is turned off.
 - **Browse free models.** The Models settings page links to a curated list of free models (currently via OpenRouter) that support tool-calling and coding. Each entry shows its vendor with a link to the official site and a link to get an API key, and can be added with one click. Free tiers are rate-limited, so heavy agent runs may hit provider caps.
 
-### The Agent Pipeline
+### Agent Workflow — Standard vs Phased
 
-When you give the agent a task, it walks through visible phases:
+On a new **Agent** or **SO** chat, Numar asks which workflow to use. That choice is **locked for the session** (start a new chat to switch). Configure comparison, recommendations, and Phased stage models under **Settings ▸ Agent Workflow**. In-app Docs cover the same ground.
 
-1. **THINKING** — high-level analysis, timeboxed (default 300s) and cancellable, optional reasoning mode enables thinking-chain models (DeepSeek-R1, GLM, Qwen-thinking, plus reasoning-capable OpenAI / Anthropic models).
-2. **PLAN** — gathers information by calling read-only tools (grep, file read, etc.), then commits to a plan, bounded by max rounds and timeout to prevent infinite loops.
-3. **GENERATE** — produces the actual edits.
+| | **Standard** | **Phased** |
+|---|--------------|------------|
+| **What it is** | Continuous coding **agent** (tool loop) | Staged coding **workflow** |
+| **Shape** | Inspect → edit → validate → complete | THINKING → PLAN → GENERATE → APPLY → host checks |
+| **Availability** | Free and Pro | Pro (stage models / Effort on Pro) |
+| **Best for** | Bug fixes, small edits, Q&A, fastest loop | Multi-file features, risky changes, explicit plan before edits |
+| **Validation** | Diagnostics + optional Numar Test / Post-Edit Validation | Host Syntax → Compile → Test after APPLY; **failures** can return to THINKING for repair; **skipped** checks do not start a repair loop |
+
+#### Phased pipeline (visible stages)
+
+When the chat uses **Phased**, the agent walks through visible phases:
+
+1. **THINKING** — high-level analysis, timeboxed and cancellable; optional reasoning / stage models.
+2. **PLAN** — read-only tools gather context, then commit to a plan (max rounds / timeout apply only here — not to Standard).
+3. **GENERATE** — produces the edits.
 4. **APPLY** — writes the edits to disk.
-5. **TEST** — if Numar Test is enabled, runs your test command and feeds failures back for self-repair.
-6. **SUMMARY** — concise recap of what changed and why.
+5. **Host checks** — Syntax, then **Compile** (if Post-Edit Validation is on), then **Numar Test** (if enabled). Failures can feed self-repair; unresolved or skipped commands show a short setup tip and continue.
+6. **SUMMARY** — concise recap of what changed.
 
 Every phase is shown in the UI. Stopping mid-pipeline is always available.
 
 ```mermaid
 stateDiagram-v2
     [*] --> THINKING
-    THINKING --> PLAN: 300s timeout
+    THINKING --> PLAN: continue
     THINKING --> [*]: cancel
     PLAN --> GENERATE: collect info
     PLAN --> [*]: cancel
     GENERATE --> APPLY
     APPLY --> TEST: edits committed
-    TEST --> SUMMARY: tests pass
-    TEST --> PLAN: tests fail (within retry budget)
+    TEST --> SUMMARY: checks pass or skipped
+    TEST --> THINKING: check fails (within retry budget)
     SUMMARY --> [*]
 ```
 
+#### Standard workflow
+
+**Standard** stays in one continuous agent loop: the model calls tools, edits files, and completes when the task is done. TODO / snapshot cards can still appear for risky turns (same Plan Mode auto-promotion thresholds). There is no separate PLAN stage timeout — Agents “model-round timeout” and max steps apply.
+
+### SO Mode
+
+**SO Mode** (Self-Operating) is for hands-off delivery on a clear goal. Numar investigates, implements, validates, and repairs within your step/time limits, following the chat’s **Standard** or **Phased** workflow. Prefer a strong coding model; on Phased chats, stage models and Effort on Agent Workflow still apply. Expect asks mainly for credentials, permissions, or business facts that are not in the workspace. Configure and read Docs under **Settings ▸ SO Mode**.
+
 ### Plan Mode
 
-Plan Mode auto-promotes "risky" turns into a structured plan view automatically. Triggers are configurable (see [Settings ▸ Plan Mode](#plan-mode)):
+Plan Mode has two related ideas:
+
+1. **Plan mode in the chat footer** — drafts a reviewable plan file under `.numar/plans/` before big changes; you read it, then press Execute.
+2. **Agent auto-promotion** — in Agent mode, risky turns can show a snapshot / TODO card (thresholds under Settings ▸ Plan Mode). Standard TODO cards use the same thresholds.
+
+Auto-promotion triggers are configurable:
 
 - More than N files affected
 - More than N total edits
@@ -212,26 +247,23 @@ Plan Mode auto-promotes "risky" turns into a structured plan view automatically.
 
 File **deletion** always requires explicit confirmation regardless of settings.
 
-The plan is a real markdown document persisted to your workspace. You can read it, edit it, re-order TODOs, or cancel.
-
 ### Numar Test — Self-Repair Loop
 
-After the agent finishes editing, Numar Test can:
+After the agent finishes editing (especially in **Phased**, after compile passes), Numar Test can:
 
-1. Automatically pick relevant tests
-2. Run them
-3. Feed failures back to the agent for one or more self-repair attempts
-4. Stop after the configured retry budget
+1. Resolve a test command (**Auto** = project discovery + model pick when needed, or a locked preset / Custom)
+2. Run tests (optionally scoped with `{files}`)
+3. Feed **new failures** back for self-repair within the retry budget
+4. **Skip with a setup tip** if no command can be resolved — the chat is not blocked waiting for input
 
-You configure the command template (e.g. `npm test {files}`) and the timeout. Defaults are tuned for typical Node/Python projects and can be overridden per workspace.
+Defaults are tuned for typical Node/Python projects and can be overridden per workspace. Aligns with Compile command UX under Agents → Post-Edit Validation.
 
 ```mermaid
 graph LR
-    A["🔧 Agent edits done"] --> B["🧪 Auto-select tests"]
-    B --> C["▶️ Run tests"]
-    C --> D{Tests pass?}
-    D -->|yes| E["✅ Complete"]
-    D -->|no| F{Retry budget<br/>remaining?}
+    A["🔧 Agent edits done"] --> B["🧪 Resolve / run tests"]
+    B --> C{Tests pass?}
+    C -->|yes / skipped| E["✅ Continue"]
+    C -->|fail| F{Retry budget<br/>remaining?}
     F -->|yes| G["📋 Collect failures"]
     G --> H["🤔 Agent self-repairs"]
     H --> I["📝 Generate new edits"]
@@ -239,9 +271,14 @@ graph LR
     F -->|no| J["❌ Stop"]
 ```
 
-### Auto-Compile
+### Post-Edit Validation & Compile Command
 
-For TypeScript/JavaScript projects, enabling auto-compile runs the compiler after each round with typed file modifications. Compile errors are surfaced and (optionally) handed back to the agent as part of the test loop.
+Under **Settings ▸ Agents → Post-Edit Validation**:
+
+- Turn on automatic validation when you want host checks after typed-language edits (especially useful for **Phased**).
+- **Compile command** — **Auto** (detect from the project / ask the model when needed), a framework **preset**, or **Custom** (supports `{files}`, e.g. `python -m py_compile {files}`). Same idea as Numar Test.
+- If the command cannot be determined, Numar **skips** with a short tip (open the folder that contains `package.json` / `go.mod`, keep Auto, or lock a command) instead of blocking the chat.
+- Compile / test **failures** can re-enter repair; **skips** do not.
 
 ### Memory — Two Layers
 
@@ -325,11 +362,15 @@ All settings live under **Settings ▸ Numar**. Each panel in the UI has detaile
 
 **Commands & Git** — auto-approve terminal commands toggle; trusted commands whitelist; trusted git operations that skip confirmation; require confirmation for pushes to `master`
 
-**Agents** — max steps per run; PLAN and THINKING phase timeouts and round caps; auto-compile after typed-file edits; reasoning mode and per-model reasoning effort; skip request classification
+**Agents** — max steps per run; model-round timeout; hybrid-model reasoning; **Post-Edit Validation** (toggle + **Compile command**: Auto / presets / Custom with `{files}`)
 
-**Plan Mode** — auto-trigger master switch plus thresholds (file count, edit count, create count, destructive operations, sensitive files)
+**Agent Workflow** — Standard vs Phased comparison; Phased stage models and Effort (Pro); Phased PLAN max rounds / timeout
 
-**Numar Test** — toggle, test command template, timeout, self-repair retry budget
+**SO Mode** — Self-Operating guidance and model tips; follows the chat’s Standard or Phased workflow
+
+**Plan Mode** — Plan-mode footer + Agent auto-promotion thresholds (file count, edit count, create count, destructive operations, sensitive files); optional THINKING flow for plan generation
+
+**Numar Test** — toggle; test command **Auto / presets / Custom** (`{files}`); timeout; self-repair retry budget
 
 **Context Window** — recent turn count kept in context; history token budget; over-budget strategy (truncate or LLM summary)
 

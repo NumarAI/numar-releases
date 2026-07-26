@@ -41,13 +41,19 @@ Numar 会进行两类对外网络访问：
 
 诊断日志写到本地 NDJSON 文件（`~/.newma/telemetry.ndjson`），从不上传；对话记忆和代码索引存储在本机的 SQLite 数据库里。
 
-**3. Agent 状态机**
-Agent 走六个阶段：THINKING → PLAN → GENERATE → APPLY → TEST → SUMMARY，每个阶段有自己的超时和轮次预算，当前状态会在 UI 上显示，可被暂停、改方向、取消。
+**3. Agent Workflow（Standard / Phased）**
+新建 Agent 或 SO 会话时，Numar 会询问使用哪种工作流——该选择在本会话内锁定。
 
-**4. 持久化项目记忆**
+- **Standard** —— 连续编码 Agent：调查 → 编辑 → 校验 → 完成（一条工具环；Free / Pro 均可）。
+- **Phased** —— 分阶段编码工作流：THINKING → PLAN → GENERATE → APPLY → 主机侧 Syntax / Compile / Test（Pro）。可在 **Settings ▸ Agent Workflow** 为各阶段配置模型与 Effort。
+
+**4. SO Mode（自运行）**
+SO Mode 让 Numar 在清晰目标下端到端负责——调查、实现、校验、在限额内修复——不必逐步批准。它跟随当前会话的 Standard / Phased，一般只在凭证、权限或无法从仓库推断的业务事实上停下。
+
+**5. 持久化项目记忆**
 每一轮对话都会写入本地 SQLite，Agent 内置工具可以跨会话搜索过去的讨论。Project Memory 保留绑定到当前工作区（workspace）的条目，Global Memory 保留跨工作区（workspace）适用的条目，两者均为可选开启（opt-in）。
 
-**5. AI 自动维护的工程 Wiki**
+**6. AI 自动维护的工程 Wiki**
 Numar 可以在项目里增量生成和维护 markdown 形态的工程 Wiki，独立于对话历史，落在仓库（repo）里随 Git 版本管理。
 
 ---
@@ -106,7 +112,7 @@ graph LR
 
 ### 1. 下载
 
-到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包。
+到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.12](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.12)**）。
 
 ### 2. 安装
 
@@ -148,8 +154,11 @@ Key 存在系统 keychain，不会被发送到 Numar 的服务器，只会在本
 `文件 ▸ 打开文件夹…` 选任意目录，打开聊天面板（macOS 默认快捷键：⌘L），选模式：
 
 - **Ask** —— 跟模型聊天，不动文件
-- **Agent** —— 完整状态机 Agent，编辑文件、跑命令
-- **Plan** —— 先生成结构化的计划，按 TODO 逐项执行并征求你的批准
+- **Agent** —— 编辑文件、调用工具；新建会话时还需选择 **Standard** 或 **Phased** 工作流（见下文）
+- **Plan** —— 先在 `.numar/plans/` 写出可审阅计划，确认后再执行
+- **SO**（可选）—— Self-Operating：Numar 在限额内自主推进任务，仍使用你选的 Standard / Phased
+
+也可打开 **Settings ▸ Numar ▸ Docs** 查看应用内 Quick Start、Agent Workflow、SO Mode 与排查说明。
 
 ---
 
@@ -157,13 +166,14 @@ Key 存在系统 keychain，不会被发送到 Numar 的服务器，只会在本
 
 ### 聊天与模式
 
-Numar 的聊天面板是主要的工作界面，提供三种模式：
+Numar 的聊天面板是主要的工作界面，提供这些模式：
 
 | 模式 | 行为 | 适合场景 |
 |---|---|---|
 | **Ask** | 纯对话，不改文件、不调工具 | 学习代码库、求解释、探讨方案 |
-| **Agent** | 完整流水线 THINKING → PLAN → GENERATE → APPLY → TEST → SUMMARY；编辑文件、跑命令、按失败迭代 | 大多数编码任务 |
-| **Plan** | 先生成结构化的计划文档，每个 TODO 单独执行并征求批准 | 跨多文件的重构、任何破坏性操作、任何你想"先看再改"的事 |
+| **Agent** | 带工具的编码 Agent；每个新会话选择一次 **Standard** 或 **Phased** | 日常编码、功能开发、重构 |
+| **Plan** | 在 `.numar/plans/` 写下带 TODO 的计划文档，你审阅后点 Execute | 跨多文件重构、破坏性操作、想先看再改的任务 |
+| **SO** | 叠在 Agent 上的自运行：调查 → 实现 → 校验 → 修复，中途少打断 | 目标清晰、希望少插手交付 |
 
 ### 模型、推理强度与免费模型
 
@@ -172,36 +182,61 @@ Numar 的聊天面板是主要的工作界面，提供三种模式：
 - **推理强度（Reasoning effort）。** 对支持推理/思考链的模型，可以直接在模型旁选择强度档位——Low / Medium / High / Extra High。统一档位会映射到各 provider 的原生参数（如 OpenAI、Anthropic）。对"仅可选推理"的模型，当 Agent 推理开关关闭时不显示强度选项。
 - **浏览免费模型。** Models 设置页提供入口，列出精选的免费模型（当前经由 OpenRouter），均支持工具调用与编程。每个条目会显示其厂商（带官网链接）和获取 API Key 的链接，可一键添加。免费档有限流，重度 Agent 任务可能很快触达 provider 上限。
 
-### Agent 流水线
+### Agent Workflow —— Standard 与 Phased
 
-当你给 Agent 一个任务，它会走一条可见的阶段路径：
+新建 **Agent** 或 **SO** 会话时，Numar 会询问使用哪种工作流。该选择在**本会话内锁定**（要换就开新会话）。对比说明、推荐场景与 Phased 阶段模型在 **Settings ▸ Agent Workflow**；应用内 Docs 同步维护。
 
-1. **THINKING** —— 高层分析，带超时（默认 300 秒），可取消，可选启用推理（reasoning）模式（DeepSeek-R1、GLM、Qwen-thinking 这类带独立推理链的模型，以及支持推理的 OpenAI / Anthropic 模型）。
-2. **PLAN** —— 通过只读（read-only）工具（grep、文件读取等）收集信息，然后定下计划，有最大轮次和超时上限，避免死循环。
-3. **GENERATE** —— 产出真正的编辑。
-4. **APPLY** —— 把编辑写到磁盘。
-5. **TEST** —— 如果开了 Numar Test，自动跑测试命令，把失败信息喂回去让 Agent 自修复。
-6. **SUMMARY** —— 简洁回顾改了什么、为什么。
+| | **Standard** | **Phased** |
+|---|---|---|
+| **是什么** | 连续编码 **Agent**（工具环） | 分阶段编码 **工作流** |
+| **形态** | 调查 → 编辑 → 校验 → 完成 | THINKING → PLAN → GENERATE → APPLY → 主机侧检查 |
+| **可用性** | Free 与 Pro | Pro（阶段模型 / Effort 为 Pro） |
+| **更适合** | 修 bug、小改动、问答、最快闭环 | 多文件功能、高风险改动、希望先有明确计划再改 |
+| **校验** | 诊断 + 可选 Numar Test / Post-Edit Validation | APPLY 后 Syntax → Compile → Test；**失败**可回到 THINKING 修复；**跳过**不会进入修复环 |
+
+#### Phased 流水线（可见阶段）
+
+会话使用 **Phased** 时，会走可见阶段：
+
+1. **THINKING** —— 高层分析，带超时、可取消；可选推理 / 阶段模型。
+2. **PLAN** —— 只读工具收集上下文后定计划（最大轮次 / 超时**仅作用于本阶段**，Standard 不用）。
+3. **GENERATE** —— 产出编辑。
+4. **APPLY** —— 写盘。
+5. **主机侧检查** —— Syntax，再 **Compile**（若开启 Post-Edit Validation），再 **Numar Test**（若开启）。失败可进入自修复；命令解析不出则提示配置并跳过，不堵对话。
+6. **SUMMARY** —— 简洁回顾改了什么。
 
 每个阶段在 UI 上都看得到，随时可以中途停。
 
 ```mermaid
 stateDiagram-v2
     [*] --> THINKING
-    THINKING --> PLAN: 300s timeout
+    THINKING --> PLAN: continue
     THINKING --> [*]: cancel
     PLAN --> GENERATE: collect info
     PLAN --> [*]: cancel
     GENERATE --> APPLY
     APPLY --> TEST: 编辑提交
-    TEST --> SUMMARY: 测试通过
-    TEST --> PLAN: 测试失败 (重试预算内)
+    TEST --> SUMMARY: 通过或跳过
+    TEST --> THINKING: 检查失败 (重试预算内)
     SUMMARY --> [*]
 ```
 
+#### Standard 工作流
+
+**Standard** 保持一条连续 Agent 环：模型调工具、改文件，任务完成后收尾。对高风险回合仍可出现 TODO / 快照卡（与 Plan Mode 自动升级共用阈值）。没有独立的 PLAN 阶段超时——沿用 Agents 的「模型回合超时」与最大步数。
+
+### SO Mode
+
+**SO Mode**（Self-Operating）面向目标清晰、希望少插手的交付。Numar 在步数/时间限额内调查、实现、校验并修复，并跟随会话的 **Standard** 或 **Phased**。建议配强编码模型；Phased 会话仍使用 Agent Workflow 上的阶段模型与 Effort。通常只会在凭证、权限或仓库里推不出来的业务事实上询问。详见 **Settings ▸ SO Mode**。
+
 ### Plan Mode
 
-Plan Mode 会自动把"高风险"的请求升级到结构化计划视图，触发条件可配置（详见 Settings 中的 Plan Mode（计划模式）段）：
+Plan Mode 包含两层相关能力：
+
+1. **聊天底部的 Plan 模式** —— 大改前在 `.numar/plans/` 写出可审阅计划，你读完再点 Execute。
+2. **Agent 自动升级** —— Agent 模式下，高风险回合可弹出快照 / TODO 卡（阈值在 Settings ▸ Plan Mode）。Standard 的 TODO 卡共用同一套阈值。
+
+自动升级触发条件可配置：
 
 - 影响超过 N 个文件
 - 总编辑数超过 N
@@ -211,26 +246,23 @@ Plan Mode 会自动把"高风险"的请求升级到结构化计划视图，触�
 
 **删除文件永远需要明确确认**，不受这些开关影响。
 
-计划本身是一份真实的 markdown 文档，落到工作区（workspace）里，你可以读、改、调整 TODO 顺序、取消。
-
 ### Numar Test —— 自修复闭环
 
-Agent 改完之后，Numar Test 可以：
+Agent 改完之后（尤其在 **Phased**、编译通过之后），Numar Test 可以：
 
-1. 自动挑出相关的测试
-2. 跑它们
-3. 把失败信息喂回 Agent，尝试一次或多次自修复
-4. 重试预算用完就停
+1. 解析测试命令（**Auto** = 项目发现 + 必要时模型选型，或锁定预设 / Custom）
+2. 跑测试（可用 `{files}` 做文件级范围）
+3. 把**新失败**喂回 Agent，在重试预算内自修复
+4. 若解析不出命令则**提示配置并跳过**——不会堵在等待用户输入
 
-你配置测试命令模板（例如 `npm test {files}`）和超时，默认值按典型 Node / Python 项目调好，可以按工作区（workspace）覆盖。
+默认值按典型 Node / Python 项目调好，可按工作区覆盖。与 Agents → Post-Edit Validation 下的 Compile command 交互对齐。
 
 ```mermaid
 graph LR
-    A["🔧 Agent 编辑完成"] --> B["🧪 自动选择测试"]
-    B --> C["▶️ 运行测试"]
-    C --> D{测试通过?}
-    D -->|是| E["✅ 完成"]
-    D -->|否| F{重试预算<br/>未耗尽?}
+    A["🔧 Agent 编辑完成"] --> B["🧪 解析 / 运行测试"]
+    B --> C{测试通过?}
+    C -->|是 / 跳过| E["✅ 继续"]
+    C -->|失败| F{重试预算<br/>未耗尽?}
     F -->|是| G["📋 收集失败信息"]
     G --> H["🤔 Agent 自修复"]
     H --> I["📝 生成新编辑"]
@@ -238,9 +270,14 @@ graph LR
     F -->|否| J["❌ 停止"]
 ```
 
-### Auto-Compile（自动编译）
+### Post-Edit Validation 与 Compile command
 
-对 TypeScript / JavaScript 项目，开启自动编译（auto-compile）之后，每一轮带类型化文件改动的回合都会自动跑编译，编译错误会被显式展示出来，（可选地）作为测试闭环的一部分喂回 Agent。
+在 **Settings ▸ Agents → Post-Edit Validation**：
+
+- 需要类型化编辑后的主机侧检查时打开自动校验（对 **Phased** 尤其有用）。
+- **Compile command** —— **Auto**（从项目发现 / 必要时问模型）、框架**预设**，或 **Custom**（支持 `{files}`，例如 `python -m py_compile {files}`）。思路与 Numar Test 相同。
+- 命令定不下来时 Numar **跳过**并给短提示（打开含 `package.json` / `go.mod` 的文件夹、保持 Auto，或锁定命令），不堵对话。
+- Compile / Test **失败**可进入修复；**跳过**不会。
 
 ### Memory —— 两层
 
@@ -324,11 +361,15 @@ Numar 会识别你主要用中文还是英文聊天，并把该语言套用到 A
 
 **Commands & Git（命令与 Git）** —— 终端命令自动批准总开关；可信命令白名单；可跳过确认的可信 git 操作；推送到 `master` 强制确认
 
-**Agents（Agent）** —— 单次最大步数；PLAN 与 THINKING 阶段超时和轮次上限；类型化编辑后自动编译；推理（reasoning）模式与按模型的推理强度；跳过请求分类
+**Agents（Agent）** —— 单次最大步数；模型回合超时；混合模型推理；**Post-Edit Validation**（开关 + **Compile command**：Auto / 预设 / Custom，支持 `{files}`）
 
-**Plan Mode（计划模式）** —— 自动触发总开关与阈值（文件数、编辑数、创建数、破坏性操作、敏感文件）
+**Agent Workflow** —— Standard / Phased 对比；Phased 阶段模型与 Effort（Pro）；Phased PLAN 最大轮次 / 超时
 
-**Numar Test（测试）** —— 总开关、命令模板、超时、自修复重试上限
+**SO Mode** —— 自运行说明与模型建议；跟随会话的 Standard / Phased
+
+**Plan Mode（计划模式）** —— 聊天 Plan 模式 + Agent 自动升级阈值（文件数、编辑数、创建数、破坏性操作、敏感文件）；可选用 THINKING 流生成计划
+
+**Numar Test（测试）** —— 总开关；测试命令 **Auto / 预设 / Custom**（`{files}`）；超时；自修复重试上限
 
 **Context Window（上下文窗口）** —— 最近轮次数；历史 token 预算；超预算策略（截断或 LLM 摘要）
 
