@@ -40,13 +40,13 @@ Numar performs two classes of outbound network access:
 - **Numar official service**: periodic signed upgrade check to `updates.numar.ai` (returns signed manifest only).
 - **Your configured model service (provider)**: direct connection when you use AI features.
 
-Diagnostics are written to a local newline-delimited JSON file (`~/.newma/telemetry.ndjson`) and are never uploaded. Conversation memory and code index are stored in local SQLite databases on your machine.
+Diagnostics are written to a local newline-delimited JSON file (`~/.numar/telemetry.ndjson`) and are never uploaded. Conversation memory and code index are stored in local SQLite databases on your machine.
 
 **3. Agent Workflow (Standard & Phased)**
 When you start an Agent or SO chat, Numar asks which workflow to use — the choice stays locked for that session.
 
 - **Standard** — a continuous coding agent: inspect → edit → validate → complete in one tool loop (Free and Pro).
-- **Phased** — a staged coding workflow: THINKING → PLAN → GENERATE → APPLY → host Syntax / Compile / Test checks, with visible phase state (Pro). Optional per-stage models and Effort on **Settings ▸ Agent Workflow**.
+- **Phased** — a staged coding workflow: THINKING → PLAN → GENERATE → APPLY → host Parse / Compile / Test checks, with visible phase state (Pro). Optional per-stage models and Effort on **Settings ▸ Agent Workflow**.
 
 **4. SO Mode (Self-Operating)**
 SO Mode lets Numar own a clear goal end-to-end — investigate, implement, validate, and repair within limits — without approving every step. It follows the Standard or Phased workflow you chose for the chat, and only pauses for credentials, permissions, or business facts it cannot infer.
@@ -113,7 +113,7 @@ graph LR
 
 ### 1. Download
 
-Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.12](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.12)**).
+Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.22](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.22)**).
 
 ### 2. Install
 
@@ -193,7 +193,7 @@ On a new **Agent** or **SO** chat, Numar asks which workflow to use. That choice
 | **Shape** | Inspect → edit → validate → complete | THINKING → PLAN → GENERATE → APPLY → host checks |
 | **Availability** | Free and Pro | Pro (stage models / Effort on Pro) |
 | **Best for** | Bug fixes, small edits, Q&A, fastest loop | Multi-file features, risky changes, explicit plan before edits |
-| **Validation** | Diagnostics + optional Numar Test / Post-Edit Validation | Host Syntax → Compile → Test after APPLY; **failures** can return to THINKING for repair; **skipped** checks do not start a repair loop |
+| **Validation** | Diagnostics + optional Numar Test / Post-Edit Validation | Parse check → Compile → Test after APPLY; **failures** can return to THINKING for repair; **skipped** checks do not start a repair loop |
 
 #### Phased pipeline (visible stages)
 
@@ -203,7 +203,7 @@ When the chat uses **Phased**, the agent walks through visible phases:
 2. **PLAN** — read-only tools gather context, then commit to a plan (max rounds / timeout apply only here — not to Standard).
 3. **GENERATE** — produces the edits.
 4. **APPLY** — writes the edits to disk.
-5. **Host checks** — Syntax, then **Compile** (if Post-Edit Validation is on), then **Numar Test** (if enabled). Failures can feed self-repair; unresolved or skipped commands show a short setup tip and continue.
+5. **Host checks** — **Parse check**, then **Compile** (if Post-Edit Validation is on), then **Numar Test** (if enabled). Failures can feed self-repair; unresolved or skipped commands show a short setup tip and continue.
 6. **SUMMARY** — concise recap of what changed.
 
 Every phase is shown in the UI. Stopping mid-pipeline is always available.
@@ -224,7 +224,7 @@ stateDiagram-v2
 
 #### Standard workflow
 
-**Standard** stays in one continuous agent loop: the model calls tools, edits files, and completes when the task is done. TODO / snapshot cards can still appear for risky turns (same Plan Mode auto-promotion thresholds). There is no separate PLAN stage timeout — Agents “model-round timeout” and max steps apply.
+**Standard** stays in one continuous agent loop: the model calls tools, edits files, and completes when the task is done. Recent releases also settle completion against fresh validation evidence and workspace truth, so a finished claim is less likely to stick after the files have changed again. TODO / snapshot cards can still appear for risky turns (same Plan Mode auto-promotion thresholds). There is no separate PLAN stage timeout — Agents “model-round timeout” and max steps apply.
 
 ### SO Mode
 
@@ -415,7 +415,7 @@ This section lists exactly what Numar stores locally and what it sends over the 
 - Project memory and global memory (local markdown)
 - Code index (local SQLite)
 - Project wiki (markdown files inside your project)
-- Diagnostic logs (`~/.newma/telemetry.ndjson`, never auto-uploaded)
+- Diagnostic logs (`~/.numar/telemetry.ndjson`, never auto-uploaded)
 
 **What Numar sends, to whom:**
 
@@ -487,7 +487,7 @@ A plugin cannot own the chat panel layout, the agent state, the plan-mode UX, th
 
 This repository (`NumarAI/numar-releases`) is the **public distribution point** for signed Numar binaries. It contains no source code — just GitHub Releases with the `.app.zip` per platform, their SHA-256 manifests, and this README.
 
-> **About the name.** Starting from **v0.0.5**, the product, settings, and UI use **Numar** throughout. Some on-disk paths under your home directory (e.g. `~/.newma/telemetry.ndjson`) retain the legacy `newma` prefix for backward compatibility — they are stable identifiers and won't be renamed in place.
+> **About the name.** Starting from **v0.0.5**, the product, settings, and UI use **Numar** throughout. Local data lives under `~/.numar/` (for example `~/.numar/telemetry.ndjson`, memory, and interaction logs). Workspace assets such as plans and skills live under `.numar/` in the project. Very early builds used a `~/.newma/` prefix; current releases no longer write there.
 
 The product source code is hosted privately. The split exists because:
 
