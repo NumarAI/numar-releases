@@ -39,13 +39,13 @@ Numar 会进行两类对外网络访问：
 - **Numar 官方服务**：定期向 `updates.numar.ai` 发起**签名升级检查**（返回签名清单）。
 - **你配置的模型服务（provider）**：当你使用 AI 功能时，请求由本机直接发送到该模型服务（provider）。
 
-诊断日志写到本地 NDJSON 文件（`~/.newma/telemetry.ndjson`），从不上传；对话记忆和代码索引存储在本机的 SQLite 数据库里。
+诊断日志写到本地 NDJSON 文件（`~/.numar/telemetry.ndjson`），从不上传；对话记忆和代码索引存储在本机的 SQLite 数据库里。
 
 **3. Agent Workflow（Standard / Phased）**
 新建 Agent 或 SO 会话时，Numar 会询问使用哪种工作流——该选择在本会话内锁定。
 
 - **Standard** —— 连续编码 Agent：调查 → 编辑 → 校验 → 完成（一条工具环；Free / Pro 均可）。
-- **Phased** —— 分阶段编码工作流：THINKING → PLAN → GENERATE → APPLY → 主机侧 Syntax / Compile / Test（Pro）。可在 **Settings ▸ Agent Workflow** 为各阶段配置模型与 Effort。
+- **Phased** —— 分阶段编码工作流：THINKING → PLAN → GENERATE → APPLY → 主机侧 Parse / Compile / Test（Pro）。可在 **Settings ▸ Agent Workflow** 为各阶段配置模型与 Effort。
 
 **4. SO Mode（自运行）**
 SO Mode 让 Numar 在清晰目标下端到端负责——调查、实现、校验、在限额内修复——不必逐步批准。它跟随当前会话的 Standard / Phased，一般只在凭证、权限或无法从仓库推断的业务事实上停下。
@@ -112,7 +112,7 @@ graph LR
 
 ### 1. 下载
 
-到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.12](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.12)**）。
+到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.22](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.22)**）。
 
 ### 2. 安装
 
@@ -192,7 +192,7 @@ Numar 的聊天面板是主要的工作界面，提供这些模式：
 | **形态** | 调查 → 编辑 → 校验 → 完成 | THINKING → PLAN → GENERATE → APPLY → 主机侧检查 |
 | **可用性** | Free 与 Pro | Pro（阶段模型 / Effort 为 Pro） |
 | **更适合** | 修 bug、小改动、问答、最快闭环 | 多文件功能、高风险改动、希望先有明确计划再改 |
-| **校验** | 诊断 + 可选 Numar Test / Post-Edit Validation | APPLY 后 Syntax → Compile → Test；**失败**可回到 THINKING 修复；**跳过**不会进入修复环 |
+| **校验** | 诊断 + 可选 Numar Test / Post-Edit Validation | APPLY 后 Parse check → Compile → Test；**失败**可回到 THINKING 修复；**跳过**不会进入修复环 |
 
 #### Phased 流水线（可见阶段）
 
@@ -202,7 +202,7 @@ Numar 的聊天面板是主要的工作界面，提供这些模式：
 2. **PLAN** —— 只读工具收集上下文后定计划（最大轮次 / 超时**仅作用于本阶段**，Standard 不用）。
 3. **GENERATE** —— 产出编辑。
 4. **APPLY** —— 写盘。
-5. **主机侧检查** —— Syntax，再 **Compile**（若开启 Post-Edit Validation），再 **Numar Test**（若开启）。失败可进入自修复；命令解析不出则提示配置并跳过，不堵对话。
+5. **主机侧检查** —— **Parse check**，再 **Compile**（若开启 Post-Edit Validation），再 **Numar Test**（若开启）。失败可进入自修复；命令解析不出则提示配置并跳过，不堵对话。
 6. **SUMMARY** —— 简洁回顾改了什么。
 
 每个阶段在 UI 上都看得到，随时可以中途停。
@@ -223,7 +223,7 @@ stateDiagram-v2
 
 #### Standard 工作流
 
-**Standard** 保持一条连续 Agent 环：模型调工具、改文件，任务完成后收尾。对高风险回合仍可出现 TODO / 快照卡（与 Plan Mode 自动升级共用阈值）。没有独立的 PLAN 阶段超时——沿用 Agents 的「模型回合超时」与最大步数。
+**Standard** 保持一条连续 Agent 环：模型调工具、改文件，任务完成后收尾。近期版本会把完成结算绑到新鲜的校验证据与工作区真实变更上，文件又改过之后，旧的“已完成”声明更不容易继续生效。对高风险回合仍可出现 TODO / 快照卡（与 Plan Mode 自动升级共用阈值）。没有独立的 PLAN 阶段超时——沿用 Agents 的「模型回合超时」与最大步数。
 
 ### SO Mode
 
@@ -414,7 +414,7 @@ Numar 会自动向 `updates.numar.ai` 检查更新，检查机制严控、签名
 - Project Memory 和 Global Memory（本地 markdown）
 - 代码索引（本地 SQLite）
 - 项目 Wiki（落到项目里的 markdown）
-- 诊断日志（`~/.newma/telemetry.ndjson`，永不自动上传）
+- 诊断日志（`~/.numar/telemetry.ndjson`，永不自动上传）
 
 **Numar 主动发的，发给谁：**
 
@@ -486,7 +486,7 @@ Numar 目前**默认闭源**，我们是个聚焦的小团队，目前以商业�
 
 本仓库（`NumarAI/numar-releases`）是 Numar 签名二进制的**公开分发点**，不含源码——只有 GitHub Releases 上的 `.app.zip`（按平台）、对应的 SHA-256 清单、以及这份 README。
 
-> **关于命名。** 从 **v0.0.5** 起，产品、Settings 和 UI 全部使用 **Numar** 品牌。用户主目录下的部分本地路径（如 `~/.newma/telemetry.ndjson`）保留旧 `newma` 前缀以兼容已有安装——这些是稳定的磁盘标识符，不会就地改名。
+> **关于命名。** 从 **v0.0.5** 起，产品、Settings 和 UI 全部使用 **Numar** 品牌。本机数据落在 `~/.numar/`（例如 `~/.numar/telemetry.ndjson`、记忆与交互日志）；工作区内的计划与 skills 等资产落在项目的 `.numar/`。极早期构建曾使用 `~/.newma/` 前缀，当前版本已不再写入该路径。
 
 产品源码私有托管，这种拆分的原因：
 
