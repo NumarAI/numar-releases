@@ -112,7 +112,7 @@ graph LR
 
 ### 1. 下载
 
-到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.22](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.22)**）。
+到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.23](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.23)**）。
 
 ### 2. 安装
 
