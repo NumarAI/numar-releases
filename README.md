@@ -113,7 +113,7 @@ graph LR
 
 ### 1. Download
 
-Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.22](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.22)**).
+Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.23](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.23)**).
 
 ### 2. Install
 
