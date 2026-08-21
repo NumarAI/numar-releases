@@ -50,11 +50,14 @@ Numar 会进行两类对外网络访问：
 **4. SO Mode（自运行）**
 SO Mode 让 Numar 在清晰目标下端到端负责——调查、实现、校验、在限额内修复——不必逐步批准。它跟随当前会话的 Standard / Phased，一般只在凭证、权限或无法从仓库推断的业务事实上停下。
 
-**5. 持久化项目记忆**
-每一轮对话都会写入本地 SQLite，Agent 内置工具可以跨会话搜索过去的讨论。Project Memory 保留绑定到当前工作区（workspace）的条目，Global Memory 保留跨工作区（workspace）适用的条目，两者均为可选开启（opt-in）。
+**5. 本地对话历史与记忆**
+在 Pro 中，新对话会记录到本地 SQLite。Conversation History 开关控制 AI 能否搜索和使用这些记录；关闭 AI 访问不会上传、删除记录，也不会停止记录新的 Pro 对话。Project Memory 保留绑定到当前工作区（workspace）的条目，Global Memory 保留跨工作区（workspace）适用的条目，两层记忆均为可选开启（opt-in）。
 
 **6. AI 自动维护的工程 Wiki**
 Numar 可以在项目里增量生成和维护 markdown 形态的工程 Wiki，独立于对话历史，落在仓库（repo）里随 Git 版本管理。
+
+**7. Business Knowledge（业务知识）**
+Numar 可以维护项目级的业务规则、决策与关联关系。你可以从当前工程初始化知识库，把它只保存在本机，或通过 `.numar/business/` 随 Git 共享；还可以用只读关系图查看整体业务结构。检索会结合业务文本与当前实现引用，并把已有知识当作证据，而不是要求 Agent 无条件相信。
 
 ---
 
@@ -67,9 +70,11 @@ graph LR
         Sidecar[本地 Sidecar<br/>127.0.0.1:3901]
         SQLite[(SQLite<br/>记忆 + 代码索引)]
         Wiki[(项目 Wiki<br/>markdown 文件)]
+        BusinessKnowledge[(Business Knowledge<br/>规则 + 关联关系)]
         Editor <--> Sidecar
         Sidecar <--> SQLite
         Sidecar <--> Wiki
+        Sidecar <--> BusinessKnowledge
     end
 
     subgraph YourProvider["你配置的模型服务（provider）"]
@@ -94,7 +99,7 @@ graph LR
 
 **哪些东西在哪儿：**
 
-- 蓝色框（你的机器）装的是编辑器、本地 Sidecar、你的代码、对话历史、记忆、Wiki、API key
+- 蓝色框（你的机器）装的是编辑器、本地 Sidecar、你的代码、对话历史、记忆、Wiki、Business Knowledge、API key
 - 橙色框（模型服务/provider）是你配置的模型服务（provider），每次模型调用都由你的机器直接发到这里
 - 灰色框（Numar 服务器）只接收周期性的签名升级清单请求
 
@@ -112,7 +117,7 @@ graph LR
 
 ### 1. 下载
 
-到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.23](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.23)**）。
+到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.29](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.29)**）。
 
 ### 2. 安装
 
@@ -145,7 +150,7 @@ shasum -a 256 ~/Downloads/Numar-darwin-arm64.zip
 1. 打开 **Settings ▸ Numar**
 2. 选择模型服务（provider：OpenAI / Anthropic / DeepSeek / GLM / Qwen / Gemini / OpenRouter / Ollama / OpenAI-compatible 自定义）
 3. 粘贴你的 API Key
-4. 如果想给 **向量嵌入（Embedding）/ 视觉（Vision）/ 搜索（Search）/ Wiki** 配独立模型，也可以单独设置
+4. 如果想给 **向量嵌入（Embedding）/ 视觉（Vision）/ 搜索（Search）/ Wiki / Business Knowledge** 配独立模型，也可以单独设置
 
 Key 存在系统 keychain，不会被发送到 Numar 的服务器，只会在本地 Sidecar 直连你配置的模型服务（provider）时用于发起请求。
 
@@ -290,13 +295,28 @@ Numar 有两层**可选开启（opt-in）**的持久化记忆，**都默认关�
 
 ### 对话历史与搜索
 
-每一轮对话都会被写入本地 SQLite，Agent 内置一个工具，可以跨会话搜索过去的对话。
+在 Pro 中，新对话会写入本地 SQLite。启用 AI 访问后，Agent 可以通过内置工具跨会话搜索过去的对话。
 
 你可以控制：
-- 是否写入新轮次
-- 保留多少最近轮次在活跃上下文（context）里
-- 历史 token 预算
-- 超预算时的策略——截断或 LLM 摘要
+- AI 能否搜索和使用 Conversation History
+- 本地对话记录的保留与存储阈值
+- 触达阈值后是否允许自动执行永久清理
+
+关闭 AI 访问不会删除已有记录，也不会停止记录新的 Pro 对话。活跃上下文的轮次数与 token 限额在 **Context Window** 中单独配置。
+
+### Sessions（会话）
+
+Sessions 视图提供精简的本地会话历史和 **New Session** 操作。它复用 Numar 的会话生命周期，因此打开某个 Session 会恢复原会话，而不是创建一份重复副本。Session 历史保留在本机，不是云同步功能。
+
+### Business Knowledge（业务知识）
+
+Business Knowledge 是按项目维护的 AI 业务知识库，用来保存业务规则、决策与关联关系。它用于补充源代码、Conversation History、Memory 和工程 Wiki，而不是替代它们。
+
+- **从工程初始化。** 前台扫描从代码、测试与文档中提取候选事实；失败批次可以 Retry，用户主动停止的扫描可以 Continue。
+- **持续更新。** 成功完成的任务可以增量更新匹配事实；Relationships 会随扫描刷新，也可以在已有知识变化后单独刷新。
+- **本地或共享。** 可以只保存在当前设备，也可以把 `.numar/business/` 通过 Git 分享给团队。
+- **证据感知检索。** 通过关键词/文本与实现引用匹配召回相关事实和 Relationships；Agent 行动前仍会检查当前代码。
+- **只读预览。** 可以打开力导向图查看规则及其直接关联，不会编辑文件，也不会离开 Settings。
 
 ### 项目 Wiki
 
@@ -349,6 +369,8 @@ Numar 会识别你主要用中文还是英文聊天，并把该语言套用到 A
 
 **Memory（记忆）** —— 全局记忆（Global）与项目记忆（Project）的总开关（**两者默认都关**）
 
+**Business Knowledge（业务知识）** —— 模型选择；本地或 Git 共享存储；工程初始化、Retry/Continue、Relationships 刷新与只读关系图预览
+
 **Indexing & Embeddings（索引与向量嵌入）** —— 工作区（workspace）向量嵌入总开关；嵌入模型、端点（endpoint）、API Key
 
 **Vision（视觉）** —— 主模型不支持视觉时，用于图像描述的独立模型
@@ -373,7 +395,7 @@ Numar 会识别你主要用中文还是英文聊天，并把该语言套用到 A
 
 **Context Window（上下文窗口）** —— 最近轮次数；历史 token 预算；超预算策略（截断或 LLM 摘要）
 
-**Conversation History（对话历史）** —— 是否写入本地 SQLite（**默认开**，可关，已有数据保留）
+**Conversation History（对话历史）** —— AI 能否搜索和使用本地记录的 Pro 对话；保留、存储与清理控制（关闭 AI 访问不会停止记录，也不会删除已有数据）
 
 **Code Index（代码索引）** —— 是否在本地索引项目代码（**默认开**，可关，已有数据保留）
 
@@ -414,6 +436,7 @@ Numar 会自动向 `updates.numar.ai` 检查更新，检查机制严控、签名
 - Project Memory 和 Global Memory（本地 markdown）
 - 代码索引（本地 SQLite）
 - 项目 Wiki（落到项目里的 markdown）
+- Business Knowledge（本机知识库文件或随 Git 共享的项目文件，包含规则与关联关系）
 - 诊断日志（`~/.numar/telemetry.ndjson`，永不自动上传）
 
 **Numar 主动发的，发给谁：**

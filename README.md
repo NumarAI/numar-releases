@@ -51,11 +51,14 @@ When you start an Agent or SO chat, Numar asks which workflow to use — the cho
 **4. SO Mode (Self-Operating)**
 SO Mode lets Numar own a clear goal end-to-end — investigate, implement, validate, and repair within limits — without approving every step. It follows the Standard or Phased workflow you chose for the chat, and only pauses for credentials, permissions, or business facts it cannot infer.
 
-**5. Persistent Project Memory**
-Each conversation turn is persisted to a local SQLite database, and the agent has a built-in tool that can search past discussions across sessions. Project Memory captures items tied to the current workspace; Global Memory captures items that apply across workspaces. Both are opt-in.
+**5. Local Conversation History & Memory**
+On Pro, new conversations are recorded in a local SQLite database. The Conversation History switch controls whether the AI may search and use those records; turning AI access off does not upload, delete, or stop recording new Pro conversations. Project Memory captures items tied to the current workspace; Global Memory captures items that apply across workspaces. Both memory layers are opt-in.
 
 **6. AI-Maintained Engineering Wiki**
 Numar can generate and incrementally maintain a project wiki as markdown files inside the project. The wiki is independent of chat history and lives in the repo, so it is version-controlled.
+
+**7. Business Knowledge**
+Numar can maintain a project-scoped library of business rules, decisions, and relationships. Initialize it from the current project, keep it private on this device or share it through Git under `.numar/business/`, and inspect the resulting structure in a read-only relationship graph. Retrieval combines business text with current implementation references and treats stored knowledge as evidence rather than an instruction to trust blindly.
 
 ---
 
@@ -68,9 +71,11 @@ graph LR
         Sidecar[Local Sidecar<br/>127.0.0.1:3901]
         SQLite[(SQLite<br/>Memory + Code Index)]
         Wiki[(Project Wiki<br/>markdown files)]
+        BusinessKnowledge[(Business Knowledge<br/>Rules + Relationships)]
         Editor <--> Sidecar
         Sidecar <--> SQLite
         Sidecar <--> Wiki
+        Sidecar <--> BusinessKnowledge
     end
 
     subgraph YourProvider["Your Configured Model Service (provider)"]
@@ -95,7 +100,7 @@ graph LR
 
 **What lives where:**
 
-- The blue box (Your Machine) holds the editor, the local sidecar, your code, your conversation history, your memory, your wiki, and your API keys.
+- The blue box (Your Machine) holds the editor, the local sidecar, your code, your conversation history, your memory, your wiki, your business knowledge, and your API keys.
 - The orange box (Your Provider) is whichever model service (provider) you configured. Every model call is sent here directly from your machine.
 - The grey box (Numar Servers) receives only a periodic signed update-manifest request.
 
@@ -113,7 +118,7 @@ graph LR
 
 ### 1. Download
 
-Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.23](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.23)**).
+Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.29](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.29)**).
 
 ### 2. Install
 
@@ -146,7 +151,7 @@ On first launch, Numar walks you through configuring at least one LLM provider:
 1. Open **Settings ▸ Numar AI ▸ Provider** (or **Settings ▸ Numar**)
 2. Pick a model service (provider: OpenAI / Anthropic / DeepSeek / GLM / Qwen / Gemini / OpenRouter / Ollama / OpenAI-compatible custom)
 3. Paste your API key
-4. Optionally configure separate providers for **Embeddings**, **Vision**, **Search**, and **Wiki** if you want different models for those workloads
+4. Optionally configure separate providers for **Embeddings**, **Vision**, **Search**, **Wiki**, and **Business Knowledge** if you want different models for those workloads
 
 The key is stored in your OS keychain. It never leaves your machine except in direct calls to the provider you configured.
 
@@ -291,13 +296,28 @@ Memory is stored as markdown files. The agent can read, search, and update entri
 
 ### Conversation History & Search
 
-Every conversation turn is persisted to a local SQLite database. The agent has a built-in tool that lets it search past conversations across sessions.
+On Pro, new conversations are persisted to a local SQLite database. The agent has a built-in tool that lets it search past conversations across sessions when AI access is enabled.
 
 You control:
-- Whether new turns are written
-- How many recent turns are kept in active context
-- The token budget for history
-- The strategy when history exceeds budget — truncate vs LLM-summary
+- Whether the AI may search and use Conversation History
+- Retention and storage thresholds for locally recorded conversations
+- Whether permanent cleanup may run automatically after a threshold is reached
+
+Turning AI access off does not delete existing records and does not stop new Pro conversations from being recorded. Active-context turn and token limits are configured separately under **Context Window**.
+
+### Sessions
+
+The Sessions view provides a compact local history of conversations and a **New Session** action. It reuses Numar's conversation lifecycle, so opening a session restores that chat instead of creating a second copy. Session history stays on this device and is not a cloud-sync feature.
+
+### Business Knowledge
+
+Business Knowledge is a project-scoped, AI-maintained library of business rules, decisions, and relationships. It complements source code, Conversation History, Memory, and the engineering Wiki rather than replacing them.
+
+- **Initialize from the project.** A foreground scan extracts candidate facts from code, tests, and docs. Failed batches can be retried, and a user-stopped scan can continue.
+- **Stay current.** Successful work can update matching facts incrementally; relationships are refreshed as part of scanning and can also be refreshed independently after existing knowledge changes.
+- **Local or shared.** Keep the library only on this device, or share `.numar/business/` through Git for team projects.
+- **Evidence-aware retrieval.** Keyword/text and implementation-reference matches retrieve relevant facts and relationships; current code is still checked before the agent acts.
+- **Read-only preview.** Open the force-directed graph to inspect rules and their direct relationships without editing files or navigating away from Settings.
 
 ### Project Wiki
 
@@ -350,6 +370,8 @@ All settings live under **Settings ▸ Numar**. Each panel in the UI has detaile
 
 **Memory** — toggles for Global Memory and Project Memory (**both off by default**)
 
+**Business Knowledge** — model selection; local or Git-shared storage; project initialization, retry/continue, relationship refresh, and read-only graph preview
+
 **Indexing & Embeddings** — workspace embeddings toggle; embedding model, endpoint (URL), API key
 
 **Vision** — vision model used to describe images when your primary model has no vision support
@@ -374,7 +396,7 @@ All settings live under **Settings ▸ Numar**. Each panel in the UI has detaile
 
 **Context Window** — recent turn count kept in context; history token budget; over-budget strategy (truncate or LLM summary)
 
-**Conversation History** — whether to persist each turn to local SQLite (**on by default**, can be turned off; existing data is kept)
+**Conversation History** — whether the AI may search and use locally recorded Pro conversations; retention, storage, and cleanup controls (turning AI access off does not stop recording or delete existing data)
 
 **Code Index** — whether to index project source locally (**on by default**, can be turned off; existing data is kept)
 
@@ -415,6 +437,7 @@ This section lists exactly what Numar stores locally and what it sends over the 
 - Project memory and global memory (local markdown)
 - Code index (local SQLite)
 - Project wiki (markdown files inside your project)
+- Business Knowledge (local library files or Git-shared project files, including rules and relationships)
 - Diagnostic logs (`~/.numar/telemetry.ndjson`, never auto-uploaded)
 
 **What Numar sends, to whom:**
