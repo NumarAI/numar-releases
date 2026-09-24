@@ -59,6 +59,9 @@ Numar 可以在项目里增量生成和维护 markdown 形态的工程 Wiki，�
 **7. Business Knowledge（业务知识）**
 Numar 可以维护项目级的业务规则、决策与关联关系。你可以从当前工程初始化知识库，把它只保存在本机，或通过 `.numar/business/` 随 Git 共享；还可以用只读关系图查看整体业务结构。检索会结合业务文本与当前实现引用，并把已有知识当作证据，而不是要求 Agent 无条件相信。
 
+**8. Implementation Map（实现地图）**
+作为 Wiki 的配套能力，Numar 可在 `.numar/project-map/` 下发布结构化的实现地图（模块、归属、源码锚点）。Chat 可据此回答工程组成类问题；Settings 可用与 Business Knowledge 相同的力导向图预览。本地 commit 后，地图与业务知识更新可在后台进行，并用状态栏给出简短提示。
+
 ---
 
 ## 架构概览
@@ -71,10 +74,12 @@ graph LR
         SQLite[(SQLite<br/>记忆 + 代码索引)]
         Wiki[(项目 Wiki<br/>markdown 文件)]
         BusinessKnowledge[(Business Knowledge<br/>规则 + 关联关系)]
+        ImplementationMap[(Implementation Map<br/>模块 + 源码锚点)]
         Editor <--> Sidecar
         Sidecar <--> SQLite
         Sidecar <--> Wiki
         Sidecar <--> BusinessKnowledge
+        Sidecar <--> ImplementationMap
     end
 
     subgraph YourProvider["你配置的模型服务（provider）"]
@@ -99,7 +104,7 @@ graph LR
 
 **哪些东西在哪儿：**
 
-- 蓝色框（你的机器）装的是编辑器、本地 Sidecar、你的代码、对话历史、记忆、Wiki、Business Knowledge、API key
+- 蓝色框（你的机器）装的是编辑器、本地 Sidecar、你的代码、对话历史、记忆、Wiki、Business Knowledge、Implementation Map、API key
 - 橙色框（模型服务/provider）是你配置的模型服务（provider），每次模型调用都由你的机器直接发到这里
 - 灰色框（Numar 服务器）只接收周期性的签名升级清单请求
 
@@ -117,7 +122,7 @@ graph LR
 
 ### 1. 下载
 
-到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.29](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.29)**）。
+到 [Releases 页](https://github.com/NumarAI/numar-releases/releases) 拿最新的 macOS 包（当前最新：**[v0.1.33](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.33)**）。
 
 ### 2. 安装
 
@@ -291,7 +296,7 @@ Numar 有两层**可选开启（opt-in）**的持久化记忆，**都默认关�
 - **Global Memory** —— 跨工作区（workspace）的个人偏好：交互风格、语气、不绑定到具体项目的偏好
 - **Project Memory** —— 绑定到当前工作区（workspace）的事实和决策：库选型、截止日期、代码里看不出来的约束
 
-记忆以 markdown 文件存储，Agent 可以读、搜、更新，你也一样。
+记忆以 markdown 文件存储，Agent 可以读、搜、更新，你也一样。模型提出可持久化偏好时，Chat 会显示确认用的 Memory 卡片；这与回合结束后可能在后台运行的**跨会话项目记忆**更新是分开的（仅状态栏提示，不会继续当前任务）。
 
 ### 对话历史与搜索
 
@@ -310,17 +315,23 @@ Sessions 视图提供精简的本地会话历史和 **New Session** 操作。它
 
 ### Business Knowledge（业务知识）
 
-Business Knowledge 是按项目维护的 AI 业务知识库，用来保存业务规则、决策与关联关系。它用于补充源代码、Conversation History、Memory 和工程 Wiki，而不是替代它们。
+Business Knowledge 是按项目维护的 AI 业务知识库，用来保存业务规则、决策与关联关系。它用于补充源代码、Conversation History、Memory、工程 Wiki 与实现地图，而不是替代它们。
 
-- **从工程初始化。** 前台扫描从代码、测试与文档中提取候选事实；失败批次可以 Retry，用户主动停止的扫描可以 Continue。
-- **持续更新。** 成功完成的任务可以增量更新匹配事实；Relationships 会随扫描刷新，也可以在已有知识变化后单独刷新。
+- **从工程初始化。** 前台扫描从代码、测试与文档中提取候选事实；失败批次可以 Retry，用户主动停止的扫描可以 Continue。扫描进行时，窗口状态栏会显示简短进度；点击可回到 Settings。
+- **持续更新。** 成功完成的任务可以增量更新匹配事实；本地 commit 后也可在后台刷新相关事实。Relationships 会随扫描刷新，也可以在已有知识变化后单独刷新。
 - **本地或共享。** 可以只保存在当前设备，也可以把 `.numar/business/` 通过 Git 分享给团队。
 - **证据感知检索。** 通过关键词/文本与实现引用匹配召回相关事实和 Relationships；Agent 行动前仍会检查当前代码。
 - **只读预览。** 可以打开力导向图查看规则及其直接关联，不会编辑文件，也不会离开 Settings。
 
-### 项目 Wiki
+### 项目 Wiki 与实现地图
 
 Numar 可以为你的项目增量生成和维护一份工程 Wiki，独立于对话历史，以 markdown 落到仓库（repo）里（带版本管理、可审阅）。如果你想用更便宜或更大上下文的模型专门跑 Wiki 生成，可以单独给 Wiki 配模型服务（provider）。
+
+Wiki 初始化同时会在 `.numar/project-map/` 发布一份**实现地图**——结构化的模块、能力、组件与源码锚点，供 Chat 导航使用；它不是 Wiki markdown。可在 **Settings ▸ Project Wiki** 打开地图关系图（与 Business Knowledge 相同的浮层样式）。本地 commit 后，地图维护可在后台运行并用状态栏提示；点击会打开 Wiki 视图。
+
+### Chat 调查工具分组
+
+当 Standard Agent 用连续的调查工具（搜索、列举、地图、业务知识、相关读取）探索工程时，Chat 可以把这些调用折叠成一组可展开条目，让对话更易读。正文、思考、动作类工具，以及 Conversation History 等专用卡片仍作为时间线边界；工具调用顺序不变。
 
 ### 代码索引
 
@@ -369,7 +380,7 @@ Numar 会识别你主要用中文还是英文聊天，并把该语言套用到 A
 
 **Memory（记忆）** —— 全局记忆（Global）与项目记忆（Project）的总开关（**两者默认都关**）
 
-**Business Knowledge（业务知识）** —— 模型选择；本地或 Git 共享存储；工程初始化、Retry/Continue、Relationships 刷新与只读关系图预览
+**Business Knowledge（业务知识）** —— 模型选择；本地或 Git 共享存储；工程初始化、Retry/Continue、Relationships 刷新、只读关系图预览；扫描进行时的窗口状态栏进度
 
 **Indexing & Embeddings（索引与向量嵌入）** —— 工作区（workspace）向量嵌入总开关；嵌入模型、端点（endpoint）、API Key
 
@@ -377,7 +388,7 @@ Numar 会识别你主要用中文还是英文聊天，并把该语言套用到 A
 
 **Search（搜索）** —— 网页搜索的模型服务（provider）、端点（endpoint）、API Key
 
-**Wiki（工程 Wiki）** —— Wiki 生成可单独配置的模型、端点（endpoint）、API Key
+**Wiki（工程 Wiki）** —— Wiki 生成可单独配置的模型、端点（endpoint）、API Key；实现地图状态、打开关系图，以及 Reveal / Clear 控件
 
 **Code Review（代码审查）** —— 自动审查开关；触发时机（post-commit / post-push）；阈值（最少改动文件数、行数）；排除模式；可选的独立 CR 模型、端点（endpoint）、API Key
 
@@ -437,6 +448,7 @@ Numar 会自动向 `updates.numar.ai` 检查更新，检查机制严控、签名
 - 代码索引（本地 SQLite）
 - 项目 Wiki（落到项目里的 markdown）
 - Business Knowledge（本机知识库文件或随 Git 共享的项目文件，包含规则与关联关系）
+- 实现地图（`.numar/project-map/`，随 Wiki 初始化发布）
 - 诊断日志（`~/.numar/telemetry.ndjson`，永不自动上传）
 
 **Numar 主动发的，发给谁：**
