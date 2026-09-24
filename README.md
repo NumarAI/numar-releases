@@ -60,6 +60,9 @@ Numar can generate and incrementally maintain a project wiki as markdown files i
 **7. Business Knowledge**
 Numar can maintain a project-scoped library of business rules, decisions, and relationships. Initialize it from the current project, keep it private on this device or share it through Git under `.numar/business/`, and inspect the resulting structure in a read-only relationship graph. Retrieval combines business text with current implementation references and treats stored knowledge as evidence rather than an instruction to trust blindly.
 
+**8. Implementation Map**
+Alongside the Wiki, Numar can publish a structured implementation map (modules, ownership, source anchors) under `.numar/project-map/`. Chat can search it for project composition questions; Settings can open the same force-directed preview used for Business Knowledge. After local commits, map and business-knowledge updates can run in the background with a short status-bar cue.
+
 ---
 
 ## Architecture at a Glance
@@ -72,10 +75,12 @@ graph LR
         SQLite[(SQLite<br/>Memory + Code Index)]
         Wiki[(Project Wiki<br/>markdown files)]
         BusinessKnowledge[(Business Knowledge<br/>Rules + Relationships)]
+        ImplementationMap[(Implementation Map<br/>Modules + Anchors)]
         Editor <--> Sidecar
         Sidecar <--> SQLite
         Sidecar <--> Wiki
         Sidecar <--> BusinessKnowledge
+        Sidecar <--> ImplementationMap
     end
 
     subgraph YourProvider["Your Configured Model Service (provider)"]
@@ -100,7 +105,7 @@ graph LR
 
 **What lives where:**
 
-- The blue box (Your Machine) holds the editor, the local sidecar, your code, your conversation history, your memory, your wiki, your business knowledge, and your API keys.
+- The blue box (Your Machine) holds the editor, the local sidecar, your code, your conversation history, your memory, your wiki, your business knowledge, your implementation map, and your API keys.
 - The orange box (Your Provider) is whichever model service (provider) you configured. Every model call is sent here directly from your machine.
 - The grey box (Numar Servers) receives only a periodic signed update-manifest request.
 
@@ -118,7 +123,7 @@ graph LR
 
 ### 1. Download
 
-Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.29](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.29)**).
+Grab the latest macOS asset from the [Releases](https://github.com/NumarAI/numar-releases/releases) page (current latest: **[v0.1.33](https://github.com/NumarAI/numar-releases/releases/tag/v0.1.33)**).
 
 ### 2. Install
 
@@ -292,7 +297,7 @@ Numar has two **opt-in** persistent memory layers, both off by default:
 - **Global Memory** — cross-workspace personal preferences: interaction style, tone, things that apply regardless of project.
 - **Project Memory** — facts and decisions tied to the current workspace: library choices, deadlines, constraints not visible in code.
 
-Memory is stored as markdown files. The agent can read, search, and update entries — and so can you.
+Memory is stored as markdown files. The agent can read, search, and update entries — and so can you. Confirmed Memory cards appear in Chat when the model proposes a durable preference; that path is separate from the background **cross-session project memory** update that may run after a turn completes (status bar only; it does not continue the current task).
 
 ### Conversation History & Search
 
@@ -311,17 +316,23 @@ The Sessions view provides a compact local history of conversations and a **New 
 
 ### Business Knowledge
 
-Business Knowledge is a project-scoped, AI-maintained library of business rules, decisions, and relationships. It complements source code, Conversation History, Memory, and the engineering Wiki rather than replacing them.
+Business Knowledge is a project-scoped, AI-maintained library of business rules, decisions, and relationships. It complements source code, Conversation History, Memory, the engineering Wiki, and the implementation map rather than replacing them.
 
-- **Initialize from the project.** A foreground scan extracts candidate facts from code, tests, and docs. Failed batches can be retried, and a user-stopped scan can continue.
-- **Stay current.** Successful work can update matching facts incrementally; relationships are refreshed as part of scanning and can also be refreshed independently after existing knowledge changes.
+- **Initialize from the project.** A foreground scan extracts candidate facts from code, tests, and docs. Failed batches can be retried, and a user-stopped scan can continue. While a scan runs, a short status appears in the window status bar; click it to return to Settings.
+- **Stay current.** Successful work can update matching facts incrementally; after local commits, background updates can refresh related facts. Relationships are refreshed as part of scanning and can also be refreshed independently after existing knowledge changes.
 - **Local or shared.** Keep the library only on this device, or share `.numar/business/` through Git for team projects.
 - **Evidence-aware retrieval.** Keyword/text and implementation-reference matches retrieve relevant facts and relationships; current code is still checked before the agent acts.
 - **Read-only preview.** Open the force-directed graph to inspect rules and their direct relationships without editing files or navigating away from Settings.
 
-### Project Wiki
+### Project Wiki & Implementation Map
 
 Numar can generate and incrementally maintain an engineering wiki for your project, independent of the chat. The wiki lives as markdown files inside your repo (so it's version-controlled and reviewable); a dedicated model can be configured for wiki generation if you want a cheaper or larger-context model for that workload.
+
+Wiki initialize also publishes an **implementation map** under `.numar/project-map/` — structured modules, capabilities, components, and source anchors for Chat navigation. It is not Wiki markdown. Open the map graph from **Settings ▸ Project Wiki** (same overlay style as Business Knowledge). After local commits, map maintenance can run in the background with a status-bar cue; click opens the Wiki view.
+
+### Chat Investigation Grouping
+
+When the Standard agent explores a project with contiguous investigation tools (search, list, map, business knowledge, related reads), Chat can fold those calls into one collapsible group so the transcript stays readable. Prose, thinking, action tools, and dedicated cards such as Conversation History remain chronology boundaries; tool order is unchanged.
 
 ### Code Index
 
@@ -370,7 +381,7 @@ All settings live under **Settings ▸ Numar**. Each panel in the UI has detaile
 
 **Memory** — toggles for Global Memory and Project Memory (**both off by default**)
 
-**Business Knowledge** — model selection; local or Git-shared storage; project initialization, retry/continue, relationship refresh, and read-only graph preview
+**Business Knowledge** — model selection; local or Git-shared storage; project initialization, retry/continue, relationship refresh, read-only graph preview, and window status-bar progress while a scan runs
 
 **Indexing & Embeddings** — workspace embeddings toggle; embedding model, endpoint (URL), API key
 
@@ -378,7 +389,7 @@ All settings live under **Settings ▸ Numar**. Each panel in the UI has detaile
 
 **Search** — web search provider (model service), endpoint, API key
 
-**Wiki** — dedicated model, endpoint, and API key for project wiki generation
+**Wiki** — dedicated model, endpoint, and API key for project wiki generation; implementation map status, Open graph, and reveal/clear controls
 
 **Code Review** — auto-review toggle; trigger timing (post-commit / post-push); thresholds (minimum files and lines changed); exclude patterns; optional dedicated CR model, endpoint, and key
 
@@ -438,6 +449,7 @@ This section lists exactly what Numar stores locally and what it sends over the 
 - Code index (local SQLite)
 - Project wiki (markdown files inside your project)
 - Business Knowledge (local library files or Git-shared project files, including rules and relationships)
+- Implementation map (`.numar/project-map/`, published with Wiki initialize)
 - Diagnostic logs (`~/.numar/telemetry.ndjson`, never auto-uploaded)
 
 **What Numar sends, to whom:**
